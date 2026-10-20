@@ -1,13 +1,13 @@
 # Choosing the app's name
 
-The application is named **cutrix**, written in lowercase. Its display name, executable name, version, and publisher are centralized in `branding.json`.
+The application is named **cutris**, written in lowercase. Its display name, executable name, version, and publisher are centralized in `branding.json`.
 
 ```json
 {
-  "display_name": "cutrix",
+  "display_name": "cutris",
   "version": "1.0.0",
-  "publisher": "cutrix contributors",
-  "executable_name": "cutrix"
+  "publisher": "cutris contributors",
+  "executable_name": "cutris"
 }
 ```
 

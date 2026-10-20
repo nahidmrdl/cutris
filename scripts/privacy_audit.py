@@ -86,7 +86,7 @@ def audit(paths: list[Path]) -> list[str]:
         if executable:
             # PyInstaller's reader requires a real path. Inspect the decompressed
             # EXE in a private temporary directory, including its compressed PYZ.
-            with TemporaryDirectory(prefix='cutrix-audit-') as directory:
+            with TemporaryDirectory(prefix='cutris-audit-') as directory:
                 path = Path(directory) / 'application.exe'
                 path.write_bytes(data)
                 examine_executable(path, label)

@@ -1,6 +1,6 @@
 {
-  "display_name": "cutrix",
+  "display_name": "cutris",
   "version": "1.0.0",
-  "publisher": "cutrix contributors",
-  "executable_name": "cutrix"
+  "publisher": "cutris contributors",
+  "executable_name": "cutris"
 }

@@ -4,7 +4,7 @@ Small, focused improvements are welcome. Open an issue before starting a large c
 
 ## Report a problem
 
-Include the cutrix version, Windows version, selected AI quality and background mode, what you expected, and steps to reproduce. If an image helps, use an example you are comfortable making public. Review screenshots and error messages for private filenames or paths.
+Include the cutris version, Windows version, selected AI quality and background mode, what you expected, and steps to reproduce. If an image helps, use an example you are comfortable making public. Review screenshots and error messages for private filenames or paths.
 
 ## Work on the app
 

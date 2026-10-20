@@ -5,7 +5,7 @@
 The first release and later updates use the same workflow. No release is published just by pushing source.
 
 1. Push the source changes to the repository's default branch.
-2. Open **Actions → Release cutrix → Run workflow** on that branch.
+2. Open **Actions → Release cutris → Run workflow** on that branch.
 3. Enter the **version**, such as `1.0.0`, without a `v` prefix.
 4. Enter **release notes** as sentences separated by semicolons, then run the workflow.
 
@@ -25,9 +25,9 @@ The workflow tests, builds, verifies the frozen executable, collects licenses, a
 
 | Asset | Use |
 | --- | --- |
-| `cutrix-1.0.0-windows-x64-setup.exe` | Windows installer; models download separately. |
-| `cutrix-1.0.0-windows-x64-portable.zip` | App bundle without an installer. |
-| `cutrix-1.0.0-source.zip` | Clean source for this version. |
+| `cutris-1.0.0-windows-x64-setup.exe` | Windows installer; models download separately. |
+| `cutris-1.0.0-windows-x64-portable.zip` | App bundle without an installer. |
+| `cutris-1.0.0-source.zip` | Clean source for this version. |
 | `SHA256SUMS.txt` | SHA-256 checksums for all three files. |
 
 The selected version is stamped into a release snapshot and tagged `v1.0.0`; the default branch is not changed. Enter the next version in the workflow for each update. Published versions and existing tags are never overwritten.
@@ -66,16 +66,16 @@ Output for version 1.0.0:
 
 | File | Purpose |
 | --- | --- |
-| `dist\cutrix\cutrix.exe` | Standalone desktop app; keep its neighboring files with it. |
-| `release\cutrix-1.0.0-windows-x64-setup.exe` | Per-user installer; optional model setup runs after program files are copied. |
-| `release\cutrix-1.0.0-windows-x64-portable.zip` | Entire app bundle without an installer. It still uses the user's application-data directory. |
-| `release\cutrix-1.0.0-source.zip` | Allowlisted source only, excluding private local working files. |
+| `dist\cutris\cutris.exe` | Standalone desktop app; keep its neighboring files with it. |
+| `release\cutris-1.0.0-windows-x64-setup.exe` | Per-user installer; optional model setup runs after program files are copied. |
+| `release\cutris-1.0.0-windows-x64-portable.zip` | Entire app bundle without an installer. It still uses the user's application-data directory. |
+| `release\cutris-1.0.0-source.zip` | Allowlisted source only, excluding private local working files. |
 | `release\SHA256SUMS.txt` | SHA-256 checksums for generated release assets. |
 
 The build audits the payload for the current workstation account, configured Git identity, and home path. Optional `CUTOUT_PRIVATE_TERMS`, with one term per line, adds names or emails to check. It examines source ZIP contents and embedded Python archives as well as ordinary binary files. To rerun the audit:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\privacy_audit.py dist\cutrix release
+.\.venv\Scripts\python.exe scripts\privacy_audit.py dist\cutris release
 ```
 
 The audit reports file labels instead of printing the private values. Review release contents yourself as well, especially any new screenshots or fixtures.
@@ -92,7 +92,7 @@ Build artifacts and archives are excluded by `.gitignore`. The clean-machine che
 
 ## Publishing source
 
-The project license uses the generic attribution **cutrix contributors**. No personal author name or email is required in source headers. Required upstream author names and copyright notices must remain.
+The project license uses the generic attribution **cutris contributors**. No personal author name or email is required in source headers. Required upstream author names and copyright notices must remain.
 
 Before the first commit, configure the author identity you intend to make public. A hosting service's no-reply address can be used instead of a personal email. The repository's `.gitignore` controls untracked files; it does not remove a file already committed or rewrite old history. Check both the staged file list and any existing history before publishing.
 

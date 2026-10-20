@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.png" alt="cutrix — local AI background removal" width="100%">
+  <img src="docs/assets/hero.png" alt="cutris — local AI background removal" width="100%">
 </p>
 
 <p align="center">
@@ -19,9 +19,9 @@
   <a href="docs/windows.md">Setup &amp; troubleshooting</a>
 </p>
 
-![Before and after: a synthetic illustration on white, then its actual transparent cutout over a checkerboard.](docs/assets/demo.png)
+![A gift illustration on white beside its real transparent cutris export, with pale ribbon details preserved.](docs/assets/showcase/background-removal.png)
 
-<p align="center"><sub>Original synthetic artwork, processed with cutrix. Checkerboard shows transparency.</sub></p>
+<p align="center"><sub>Actual cutris output. Checkerboard shows transparency.</sub></p>
 
 ## From a batch to a finished cutout
 
@@ -31,9 +31,19 @@
 - **Crop and resize:** auto crop removes empty transparent margins; manual crop and pixel sizing prepare the final canvas.
 - **Ready to use:** transparent PNGs, individually or in an ordered ZIP. Originals stay untouched.
 
+## Put your cutouts to work
+
+![Real cutris exports used in a game inventory, reward card, and shop interface layout.](docs/assets/showcase/use-cases.png)
+
+<p align="center"><sub>Illustrative layouts assembled from real PNG exports.</sub></p>
+
+![A crystal asset on its original 2048-pixel canvas, auto cropped to 1426 by 1584 pixels, then resized to 512 by 569 pixels.](docs/assets/showcase/crop-and-resize.png)
+
+<p align="center"><sub>Auto crop removes unused transparent margins. Resize sets the output dimensions.</sub></p>
+
 ## Get started
 
-1. Download **`cutrix-<version>-windows-x64-setup.exe`** from the [latest release](../../releases/latest) and install cutrix.
+1. Download **`cutris-<version>-windows-x64-setup.exe`** from the [latest release](../../releases/latest) and install cutris.
 2. Download either AI model during setup or when the app asks. Both together need about **1.2 GB**; processing works offline afterward.
 3. Drop in your images, remove backgrounds, review the cutouts, and export. Save any touch-ups before downloading.
 
@@ -61,4 +71,4 @@ Use 64-bit Python 3.11–3.13 on Windows. Run `Setup.cmd`, then `Start.cmd` to o
 
 ## Open source
 
-cutrix is [MIT licensed](LICENSE). Built with [BiRefNet](https://github.com/ZhengPeng7/BiRefNet), ONNX Runtime, and pywebview. Models and bundled dependencies retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).
+cutris is [MIT licensed](LICENSE). Built with [BiRefNet](https://github.com/ZhengPeng7/BiRefNet), ONNX Runtime, and pywebview. Models and bundled dependencies retain their own licenses; see [third-party notices](THIRD_PARTY_NOTICES.md).

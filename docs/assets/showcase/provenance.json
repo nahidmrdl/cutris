@@ -1,0 +1,32 @@
+{
+  "quality": "detail",
+  "treatment": "white",
+  "manual_touchups": false,
+  "presentation": "Composed graphics, not application screenshots",
+  "assets": [
+    "crystal",
+    "gift",
+    "backpack",
+    "quest",
+    "token",
+    "shopping-bag",
+    "bomb"
+  ],
+  "geometry_example": {
+    "asset": "crystal",
+    "source_size": [
+      2048,
+      2048
+    ],
+    "crop": {
+      "x": 311,
+      "y": 232,
+      "width": 1426,
+      "height": 1584
+    },
+    "output_size": [
+      512,
+      569
+    ]
+  }
+}

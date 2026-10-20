@@ -55,7 +55,7 @@ def test_portable_zip_scans_compressed_python_archives(tmp_path, monkeypatch, me
     # A superficial scan of compressed executable bytes cannot find the name.
     assert b'private-owner' not in executable.read_bytes().lower()
     archive = tmp_path / 'portable.zip'
-    archive.write_bytes(zip_bytes('cutrix/application.exe', executable.read_bytes()))
+    archive.write_bytes(zip_bytes('cutris/application.exe', executable.read_bytes()))
     findings = privacy_audit.audit([archive])
     assert len(findings) == 1
     assert 'application.exe:application' in findings[0]

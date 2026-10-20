@@ -40,7 +40,7 @@ def main():
     draw.rectangle((0, 406, width - 1, height - 1), fill=lime)
 
     tracked_text(draw, (88, 74), 'LOCAL AI. PRECISE CUTOUTS.', font(17, True), lime, 3.3)
-    draw.text((77, 122), 'cutrix', font=font(224, True), fill='#f4f6f0', anchor='lt')
+    draw.text((77, 122), 'cutris', font=font(224, True), fill='#f4f6f0', anchor='lt')
     draw.text((90, 336), 'Your images stay on your computer.', font=font(22), fill='#a8b1b2', anchor='lt')
     draw.line((883, 73, 883, 355), fill='#303c40', width=2)
 

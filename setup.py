@@ -16,7 +16,7 @@ def main():
         venv.create(environment, with_pip=True)
     subprocess.run([str(executable), "-m", "pip", "install", "-r", str(ROOT / "requirements-desktop.txt")], check=True)
     subprocess.run([str(executable), str(ROOT / "desktop.py"), "--setup-models"], check=True)
-    print("Ready. Double-click Start.cmd to open cutrix.")
+    print("Ready. Double-click Start.cmd to open cutris.")
 
 
 if __name__ == "__main__":

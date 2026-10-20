@@ -40,7 +40,7 @@ def test_empty_or_invalid_notes_fail(value):
 
 def test_notes_escape_html_mentions_and_markdown_without_executing_shell_text():
     notes = parse_notes('Fix <script>alert(1)</script>;Hello @all;[link](javascript:bad);$(Get-Item secret)')
-    rendered = format_notes(notes, '1.0.0', 'cutrix', 'sample/project')
+    rendered = format_notes(notes, '1.0.0', 'cutris', 'sample/project')
     assert '<script>' not in rendered
     assert '&lt;script&gt;' in rendered
     assert '@all' not in rendered
@@ -48,18 +48,18 @@ def test_notes_escape_html_mentions_and_markdown_without_executing_shell_text():
     assert '\\[link\\]\\(javascript:bad\\)' in rendered
     assert '$\\(Get\\-Item secret\\)' in rendered
     assert rendered.count('\n- ') == 4
-    assert 'https://github.com/sample/project/releases/download/v1.0.0/cutrix-1.0.0-windows-x64-setup.exe' in rendered
+    assert 'https://github.com/sample/project/releases/download/v1.0.0/cutris-1.0.0-windows-x64-setup.exe' in rendered
 
 
-@pytest.mark.parametrize('executable', ['../cutrix', 'Cutrix', 'cutrix;run', 'cutrix/path'])
+@pytest.mark.parametrize('executable', ['../cutris', 'Cutris', 'cutris;run', 'cutris/path'])
 def test_artifact_names_reject_path_and_shell_characters(executable):
     with pytest.raises(ValueError):
         artifact_names(executable, '1.0.0')
 
 
 def test_prepare_stamps_only_version_and_writes_release_control(tmp_path):
-    branding = {'display_name': 'cutrix', 'version': '1.0.0', 'publisher': 'cutrix contributors',
-                'executable_name': 'cutrix'}
+    branding = {'display_name': 'cutris', 'version': '1.0.0', 'publisher': 'cutris contributors',
+                'executable_name': 'cutris'}
     (tmp_path / 'branding.json').write_text(json.dumps(branding), encoding='utf-8')
     metadata = prepare(tmp_path, '1.2.3', 'One; Two', 'sample/project', 'a' * 40)
     stamped = json.loads((tmp_path / 'branding.json').read_text(encoding='utf-8'))
@@ -72,8 +72,8 @@ def test_prepare_stamps_only_version_and_writes_release_control(tmp_path):
 
 
 def fixture_release(root):
-    branding = {'display_name': 'cutrix', 'version': '1.0.0', 'publisher': 'cutrix contributors',
-                'executable_name': 'cutrix'}
+    branding = {'display_name': 'cutris', 'version': '1.0.0', 'publisher': 'cutris contributors',
+                'executable_name': 'cutris'}
     (root / 'branding.json').write_text(json.dumps(branding), encoding='utf-8')
     metadata = prepare(root, '1.2.3', 'One;Two', 'sample/project', 'a' * 40)
     directory = root / 'release'
@@ -82,7 +82,7 @@ def fixture_release(root):
     (directory / names[0]).write_bytes(b'installer')
     (directory / names[1]).write_bytes(b'portable')
     with zipfile.ZipFile(directory / names[2], 'w') as archive:
-        archive.writestr('cutrix-1.2.3/branding.json', metadata['branding_text'])
+        archive.writestr('cutris-1.2.3/branding.json', metadata['branding_text'])
     write_checksums(directory, names)
     return metadata
 
@@ -121,9 +121,9 @@ def test_release_rejects_wrong_source_version_or_embedded_model(tmp_path, add_mo
     metadata = fixture_release(tmp_path)
     names = metadata['assets']
     with zipfile.ZipFile(tmp_path / 'release' / names[2], 'w') as archive:
-        archive.writestr('cutrix-1.2.3/branding.json', metadata['branding_text'] if add_model else '{}')
+        archive.writestr('cutris-1.2.3/branding.json', metadata['branding_text'] if add_model else '{}')
         if add_model:
-            archive.writestr('cutrix-1.2.3/models/weights.onnx', b'weights')
+            archive.writestr('cutris-1.2.3/models/weights.onnx', b'weights')
     write_checksums(tmp_path / 'release', names)
     with pytest.raises(ValueError, match='model weights|version metadata'):
         verify_artifacts(tmp_path, metadata)

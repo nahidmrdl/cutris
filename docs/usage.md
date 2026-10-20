@@ -1,4 +1,4 @@
-# Using cutrix
+# Using cutris
 
 ## Process a batch
 

@@ -59,7 +59,7 @@ def main():
     image.paste(board, (936, 237))
     draw.text((80, 752), '1024 × 1024  ·  White background', font=font(17), fill='#61716a')
     draw.text((852, 752), '1024 × 1024  ·  Transparent PNG', font=font(17), fill='#b8c7c0')
-    draw.text((52, 820), 'Synthetic artwork. Actual cutrix output. No manual retouching.', font=font(18), fill='#60706a')
+    draw.text((52, 820), 'Synthetic artwork. Actual cutris output. No manual retouching.', font=font(18), fill='#60706a')
     image.save(Path(__file__).with_name('demo.png'), optimize=True)
 
 

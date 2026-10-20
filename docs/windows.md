@@ -2,7 +2,7 @@
 
 ## Install and prepare models
 
-Run the cutrix setup executable and launch the app from its shortcut. The installer provides an option to download the AI models during setup. You can defer that download; model setup is also available from the desktop app when a needed model is missing.
+Run the cutris setup executable and launch the app from its shortcut. The installer provides an option to download the AI models during setup. You can defer that download; model setup is also available from the desktop app when a needed model is missing.
 
 Model weights are kept outside the application install folder. This keeps installers smaller and allows installed models to survive an app update. Both BiRefNet models together take approximately 1.2 GB. Allow additional free space for temporary downloads and image batches.
 
@@ -10,7 +10,7 @@ Model weights are kept outside the application install folder. This keeps instal
 
 Model setup lets you select either or both models and shows download/verification progress. It checks expected size and a pinned SHA-256 checksum before activating each file. If a download fails, check the internet connection and available disk space, then retry; interrupted downloads can resume. Downloading a replacement does not modify image batches. Close the app before moving or replacing files manually.
 
-To reopen model setup explicitly, run `cutrix.exe --setup-models` from the app's installed directory. For a source checkout, use `.\.venv\Scripts\python.exe desktop.py --setup-models`.
+To reopen model setup explicitly, run `cutris.exe --setup-models` from the app's installed directory. For a source checkout, use `.\.venv\Scripts\python.exe desktop.py --setup-models`.
 
 Once the required models are installed, background removal and editing work offline. There is no subscription or API-key step.
 
@@ -25,7 +25,7 @@ If WebView2 is missing, the installer downloads Microsoft's bootstrapper, checks
 
 ## Saved work and upgrades
 
-Saved jobs and models normally live under `%LOCALAPPDATA%\CutoutStudio`. This stable internal folder name preserves compatibility; the visible app name is cutrix. Program updates and uninstalling the executable do not deliberately delete that folder. Back it up before moving computers or changing it manually.
+Saved jobs and models normally live under `%LOCALAPPDATA%\CutoutStudio`. This stable internal folder name preserves compatibility; the visible app name is cutris. Program updates and uninstalling the executable do not deliberately delete that folder. Back it up before moving computers or changing it manually.
 
 Previous batches reopens saved results. If the app closes while processing, the unfinished batch is paused on restart and can be resumed. A source file that could not be decoded or exceeded the limits needs to be corrected and added again.
 

@@ -1,6 +1,6 @@
 # Third-party notices
 
-cutrix is distributed under the MIT License in `LICENSE`.
+cutris is distributed under the MIT License in `LICENSE`.
 The components listed here retain their own licenses and copyright notices.
 Required upstream author attribution is preserved verbatim.
 
@@ -13,7 +13,7 @@ Official model cards, each declaring MIT licensing:
 - General: https://huggingface.co/ZhengPeng7/BiRefNet
 - Lite: https://huggingface.co/ZhengPeng7/BiRefNet_lite
 
-cutrix downloads ONNX conversions from the rembg public model release.
+cutris downloads ONNX conversions from the rembg public model release.
 The model files are not embedded in the application executable or installer.
 
 MIT License
@@ -82,7 +82,7 @@ used for a release, including corresponding-source information where present.
 
 Microsoft Edge WebView2 is a separate runtime supplied by Microsoft and is
 governed by Microsoft's runtime terms. The installer can offer its official
-runtime setup when it is missing; it is not part of cutrix's MIT code.
+runtime setup when it is missing; it is not part of cutris's MIT code.
 
 For source installations, installed package notices are available in the
 virtual environment's package metadata. The build inventory identifies the
@@ -96,5 +96,5 @@ The downloader uses fixed filenames, expected sizes, and pinned SHA-256
 digests to detect incomplete or altered downloads before activation. The
 published rembg MD5 references are also recorded in the model manifest.
 Checksum validation is not a publisher code-signing certificate.
-cutrix executes ONNX models through ONNX Runtime; it does not execute
+cutris executes ONNX models through ONNX Runtime; it does not execute
 Python downloaded from these model repositories.

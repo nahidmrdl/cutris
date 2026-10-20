@@ -2,13 +2,13 @@
   #define AppVersion "1.0.0"
 #endif
 #ifndef AppName
-  #define AppName "cutrix"
+  #define AppName "cutris"
 #endif
 #ifndef AppPublisher
-  #define AppPublisher "cutrix contributors"
+  #define AppPublisher "cutris contributors"
 #endif
 #ifndef AppExeName
-  #define AppExeName "cutrix"
+  #define AppExeName "cutris"
 #endif
 #ifndef ProjectRoot
   #define ProjectRoot ".."

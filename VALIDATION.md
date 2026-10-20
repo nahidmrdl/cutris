@@ -34,7 +34,7 @@ For a second run, use another empty test home so the history check remains isola
 The release build runs the frozen executable's self-test for static assets, the shipped Windows and interface icons, the local server, image decoding, numerical/native runtime availability, edits, crop/resize, and PNG/ZIP handling. `--check-inference` adds real AI processing when a model is installed. The runtime report does not contain workstation paths or private image names.
 
 ```powershell
-.\dist\cutrix\cutrix.exe --self-test --check-inference --report build\frozen-inference.json
+.\dist\cutris\cutris.exe --self-test --check-inference --report build\frozen-inference.json
 ```
 
 Build tooling scans the source archive and packaged runtime for the build account identity, configured Git name/email, and workstation home path. The scan includes decompressed embedded Python code. It excludes saved work, model weights, backups, logs, and private example images from the source payload.
