@@ -1,6 +1,6 @@
 'use strict';
 const $ = id => document.getElementById(id);
-const state = {token: '', files: [], job: null, selected: null, original: null, automatic: null, strokes: [], redo: [], dirty: false, tool: null, view: 'result', scale: 1, drawing: null, busy: false, loadId: 0, editRevision: 0};
+const state = {token: '', files: [], job: null, selected: null, original: null, automatic: null, output: null, strokes: [], redo: [], dirty: false, tool: null, view: 'result', scale: 1, drawing: null, busy: false, loadId: 0, editRevision: 0};
 const canvas = $('canvas'), ctx = canvas.getContext('2d');
 const escapeText = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function notice(message = '') { $('notice').textContent = message; $('notice').hidden = !message; }
@@ -33,7 +33,7 @@ function renderQueue() {
   const queueHTML = list.length ? list.map((item, index) => {
     const name = job ? item.name : item.file.name;
     const src = job ? (item.width ? imageURL(item, item.status === 'done' ? 'thumbnail' : 'original-thumbnail') : '') : item.url;
-    const status = job ? ({waiting: 'Waiting', running: 'Working on the details…', done: item.revision ? 'Ready · touched up' : 'Ready to review', error: 'Could not process'}[item.status]) : `${(item.file.size / 1024 / 1024).toFixed(1)} MB`;
+    const status = job ? ({waiting: 'Waiting', running: 'Working on the details…', done: item.revision ? 'Ready · saved changes' : 'Ready to review', error: 'Could not process'}[item.status]) : `${(item.file.size / 1024 / 1024).toFixed(1)} MB`;
     return `<div class="queue-item ${state.selected === item.id ? 'selected' : ''}" data-id="${item.id}" tabindex="0" role="button" aria-label="Preview ${escapeText(name)}"><span class="queue-number">${String(index + 1).padStart(2, '0')}</span>${src ? `<img src="${src}" alt="" loading="lazy">` : '<span>!</span>'}<div class="queue-copy"><strong title="${escapeText(name)}">${escapeText(name)}</strong><small>${status}</small></div>${job ? `<span class="status-dot ${item.status}"></span>` : `<div class="moves"><button data-move="-1" ${index === 0 ? 'disabled' : ''} aria-label="Move ${escapeText(name)} up" title="Move up">↑</button><button data-move="1" ${index === list.length - 1 ? 'disabled' : ''} aria-label="Move ${escapeText(name)} down" title="Move down">↓</button><button data-remove="1" aria-label="Remove ${escapeText(name)}" title="Remove from queue">×</button></div>`}</div>`;
   }).join('') : '<div class="empty-queue">Your next batch of images belongs here.</div>';
   if (state.queueHTML !== queueHTML) { $('queue').innerHTML = queueHTML; state.queueHTML = queueHTML; }
@@ -79,7 +79,7 @@ $('queue').onclick = safely(async event => {
   else await selectFile(row.dataset.id);
 });
 $('queue').onkeydown = event => { if (event.target.classList.contains('queue-item') && ['Enter',' '].includes(event.key)) { event.preventDefault(); event.target.click(); } };
-function emptyPreview() { clearSelection(); state.loadId++; state.selected = null; state.original = null; state.automatic = null; state.strokes = []; state.redo = []; state.dirty = false; $('canvasWrap').hidden = true; $('previewEmpty').hidden = false; $('imageName').textContent = 'A clean little workspace'; $('imageStatus').textContent = 'Nothing is uploaded to a cloud service.'; $('dimensions').textContent = 'Full-resolution preview'; updateTools(); }
+function emptyPreview() { clearSelection(); state.loadId++; state.selected = null; state.original = null; state.automatic = null; state.output = null; state.strokes = []; state.redo = []; state.dirty = false; $('canvasWrap').hidden = true; $('previewEmpty').hidden = false; $('imageName').textContent = 'A clean little workspace'; $('imageStatus').textContent = 'Nothing is uploaded to a cloud service.'; $('dimensions').textContent = 'Full-resolution preview'; updateTools(); }
 function loadImage(url) { return new Promise((resolve, reject) => { const image = new Image(); image.onload = () => resolve(image); image.onerror = () => reject(new Error('Could not load this image preview.')); image.src = url; }); }
 async function selectFile(id, force = false) {
   if (!force && state.selected === id) return;
@@ -87,17 +87,17 @@ async function selectFile(id, force = false) {
   const item = state.job ? state.job.items.find(i => i.id === id) : state.files.find(i => i.id === id);
   if (!item) return;
   const loadId = ++state.loadId;
-  state.selected = id; state.original = null; state.automatic = null; state.strokes = []; state.redo = []; state.dirty = false; state.drawing = null; setTool(null);
+  state.selected = id; state.original = null; state.automatic = null; state.output = null; state.strokes = []; state.redo = []; state.dirty = false; state.drawing = null; setTool(null);
   $('canvasWrap').hidden = true; $('previewEmpty').hidden = false;
   renderQueue(); updateTools();
   $('imageName').textContent = state.job ? item.name : item.file.name;
   $('imageStatus').textContent = item.error || 'Loading preview…';
   if (state.job && !item.width) { notice(item.error || 'This file could not be read.'); return; }
-  let original, automatic;
-  try { [original, automatic] = await Promise.all([loadImage(state.job ? imageURL(item, 'original') : item.url), state.job && item.status === 'done' ? loadImage(imageURL(item, 'automatic')) : Promise.resolve(null)]); }
+  let original, automatic, output;
+  try { [original, automatic, output] = await Promise.all([loadImage(state.job ? imageURL(item, 'original') : item.url), state.job && item.status === 'done' ? loadImage(imageURL(item, 'automatic')) : Promise.resolve(null), state.job && item.status === 'done' ? loadImage(imageURL(item)) : Promise.resolve(null)]); }
   catch (error) { if (!state.job && /\.tiff?$/i.test(item.file.name)) { $('imageStatus').textContent = 'TIFF preview will be available after processing.'; return; } throw error; }
   if (loadId !== state.loadId) return;
-  state.original = original; state.automatic = automatic; state.strokes = structuredClone(item.strokes || []); state.editRevision = item.revision || 0;
+  state.original = original; state.automatic = automatic; state.output = output; state.strokes = structuredClone(item.strokes || []); state.editRevision = item.revision || 0;
   state.view = automatic ? 'result' : 'original'; $('zoom').value = 'fit';
   canvas.width = original.naturalWidth; canvas.height = original.naturalHeight;
   $('previewEmpty').hidden = true; $('canvasWrap').hidden = false;
@@ -110,34 +110,84 @@ function resizeCanvas() {
   layoutCanvas();
 }
 new ResizeObserver(resizeCanvas).observe($('viewport'));
-function paint(stroke, points = stroke.points) {
-  if (stroke.mode === 'wand') { for (const [y,x0,x1] of stroke.spans) ctx.clearRect(x0,y,x1-x0,1); return; }
+function paint(stroke, points = stroke.points, target = ctx) {
+  const surface = target.canvas;
+  if (stroke.mode === 'wand') { for (const [y,x0,x1] of stroke.spans) target.clearRect(x0,y,x1-x0,1); return; }
   if (!points.length) return;
-  ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = stroke.size;
-  ctx.beginPath(); ctx.moveTo(...points[0]);
-  if (points.length === 1) { ctx.arc(points[0][0], points[0][1], stroke.size / 2, 0, Math.PI*2); }
-  else for (const point of points.slice(1)) ctx.lineTo(...point);
-  if (stroke.mode === 'erase') { ctx.globalCompositeOperation = 'destination-out'; ctx.strokeStyle = '#000'; ctx.fillStyle = '#000'; if (points.length === 1) ctx.fill(); else ctx.stroke(); }
+  target.save(); target.lineCap = 'round'; target.lineJoin = 'round'; target.lineWidth = stroke.size;
+  target.beginPath(); target.moveTo(...points[0]);
+  if (points.length === 1) { target.arc(points[0][0], points[0][1], stroke.size / 2, 0, Math.PI*2); }
+  else for (const point of points.slice(1)) target.lineTo(...point);
+  if (stroke.mode === 'erase') { target.globalCompositeOperation = 'destination-out'; target.strokeStyle = '#000'; target.fillStyle = '#000'; if (points.length === 1) target.fill(); else target.stroke(); }
   else {
     // A temporary stroke mask restores pixels from the untouched full-size source.
     const pad = stroke.size / 2 + 2;
     const x0 = Math.max(0, Math.floor(Math.min(...points.map(p=>p[0])) - pad));
     const y0 = Math.max(0, Math.floor(Math.min(...points.map(p=>p[1])) - pad));
-    const x1 = Math.min(canvas.width, Math.ceil(Math.max(...points.map(p=>p[0])) + pad));
-    const y1 = Math.min(canvas.height, Math.ceil(Math.max(...points.map(p=>p[1])) + pad));
-    if (x1 <= x0 || y1 <= y0) { ctx.restore(); return; }
+    const x1 = Math.min(surface.width, Math.ceil(Math.max(...points.map(p=>p[0])) + pad));
+    const y1 = Math.min(surface.height, Math.ceil(Math.max(...points.map(p=>p[1])) + pad));
+    if (x1 <= x0 || y1 <= y0) { target.restore(); return; }
     const brush = document.createElement('canvas'); brush.width = x1-x0; brush.height = y1-y0;
     const b = brush.getContext('2d'); b.translate(-x0,-y0); b.lineWidth = stroke.size; b.lineCap = 'round'; b.lineJoin = 'round'; b.beginPath(); b.moveTo(...points[0]);
     if (points.length === 1) { b.arc(points[0][0], points[0][1], stroke.size / 2, 0, Math.PI*2); b.fill(); }
     else { for (const point of points.slice(1)) b.lineTo(...point); b.stroke(); }
-    b.globalCompositeOperation = 'source-in'; b.drawImage(state.original, 0, 0); ctx.drawImage(brush, x0, y0);
+    b.globalCompositeOperation = 'source-in'; b.drawImage(state.original, 0, 0); target.drawImage(brush, x0, y0);
   }
-  ctx.restore();
+  target.restore();
 }
-function renderCanvas() { if (!state.original) return; ctx.clearRect(0,0,canvas.width,canvas.height); ctx.drawImage(state.view === 'original' || !state.automatic ? state.original : state.automatic, 0, 0); if (state.view === 'result' && state.automatic) state.strokes.forEach(stroke => paint(stroke)); }
+function getWorkingCanvas() {
+  const working = document.createElement('canvas');
+  working.width = state.original.naturalWidth; working.height = state.original.naturalHeight;
+  const context = working.getContext('2d');
+  context.drawImage(state.automatic || state.original, 0, 0);
+  if (state.automatic) state.strokes.forEach(stroke => paint(stroke, stroke.points, context));
+  return working;
+}
+function outputDimensions(item = currentItem()) {
+  return [item?.output_width || item?.width || canvas.width, item?.output_height || item?.height || canvas.height];
+}
+function renderCanvas() {
+  if (!state.original) return;
+  const previousWidth = canvas.width, previousHeight = canvas.height;
+  const result = state.view === 'result' && !!state.automatic;
+  const outputView = result && !state.tool;
+  if (outputView && !state.dirty && state.output) {
+    canvas.width = state.output.naturalWidth; canvas.height = state.output.naturalHeight;
+    ctx.drawImage(state.output, 0, 0);
+  } else {
+    canvas.width = state.original.naturalWidth; canvas.height = state.original.naturalHeight;
+    ctx.drawImage(result ? state.automatic : state.original, 0, 0);
+    if (result) state.strokes.forEach(stroke => paint(stroke));
+    const transform = currentItem()?.transform;
+    if (outputView && (transform?.crop || transform?.resize)) {
+      const crop = transform.crop || {x:0, y:0, width:canvas.width, height:canvas.height};
+      const width = transform.resize?.width || crop.width, height = transform.resize?.height || crop.height;
+      const preview = document.createElement('canvas'); preview.width = width; preview.height = height;
+      const context = preview.getContext('2d'); context.imageSmoothingQuality = 'high';
+      context.drawImage(canvas, crop.x, crop.y, crop.width, crop.height, 0, 0, width, height);
+      canvas.width = width; canvas.height = height; ctx.drawImage(preview, 0, 0);
+    }
+  }
+  $('dimensions').textContent = `${canvas.width} × ${canvas.height} px`;
+  const [width, height] = outputDimensions();
+  const transformed = !!(currentItem()?.transform?.crop || currentItem()?.transform?.resize);
+  $('imageStatus').textContent = !result ? (currentItem()?.error || 'Original · unchanged') : state.tool && transformed ? `Editing full canvas · output ${width} × ${height} px` : transformed ? `Transparent PNG · ${currentItem().transform.crop ? (currentItem().transform.resize ? 'cropped and resized' : 'cropped') : 'resized'}` : 'Transparent PNG · original dimensions';
+  if (previousWidth !== canvas.width || previousHeight !== canvas.height) panPosition = null;
+  layoutCanvas();
+}
+async function acceptGeometryResult(result) {
+  const item = currentItem(), loadId = state.loadId;
+  state.editGeneration = (state.editGeneration || 0) + 1;
+  Object.assign(item, result); state.editRevision = result.revision; state.output = null; state.view = 'result';
+  renderCanvas(); renderQueue();
+  const output = await loadImage(imageURL(item));
+  if (loadId !== state.loadId) return;
+  state.output = output; renderCanvas();
+}
 function updateTools() {
   if (typeof syncDesktopState === 'function') syncDesktopState();
   const ready = !!state.automatic && currentItem()?.status === 'done';
+  if (typeof updateGeometryButton === 'function') updateGeometryButton();
   for (const id of ['eraseTool','restoreTool','wandTool','brushSize','brushNumber','tolerance','toleranceNumber']) $(id).disabled = !ready || state.busy;
   $('doneEditing').hidden = !state.tool;
   $('doneEditing').disabled = state.busy;
@@ -154,7 +204,7 @@ function updateTools() {
   $('resultView').setAttribute('aria-pressed', state.view === 'result'); $('originalView').setAttribute('aria-pressed', state.view === 'original');
   $('resultView').disabled = !ready;
 }
-function setTool(tool) { clearSelection(); state.tool = tool; for (const name of ['erase','restore','wand']) { $(name + 'Tool').classList.toggle('active', name === tool); $(name + 'Tool').setAttribute('aria-pressed', name === tool); } if (tool) { state.view = 'result'; renderCanvas(); } $('wandPanel').hidden = tool !== 'wand'; $('brushCursor').hidden = true; setEditorCursor(); updateTools(); }
+function setTool(tool) { clearSelection(); state.tool = tool; for (const name of ['erase','restore','wand']) { $(name + 'Tool').classList.toggle('active', name === tool); $(name + 'Tool').setAttribute('aria-pressed', name === tool); } if (tool) state.view = 'result'; renderCanvas(); $('wandPanel').hidden = tool !== 'wand'; $('brushCursor').hidden = true; setEditorCursor(); updateTools(); }
 for (const tool of ['erase','restore','wand']) $(tool+'Tool').onclick = () => setTool(state.tool === tool ? null : tool);
 $('doneEditing').onclick = () => setTool(null);
 function point(event) { const rect = canvas.getBoundingClientRect(); return [Math.max(-250,Math.min(canvas.width+250,(event.clientX - rect.left) * canvas.width / rect.width)), Math.max(-250,Math.min(canvas.height+250,(event.clientY - rect.top) * canvas.height / rect.height))]; }
@@ -174,23 +224,23 @@ $('redo').onclick = () => { if (!state.redo.length || state.busy) return; clearS
 document.addEventListener('keydown', event => { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z' && !/INPUT|SELECT|TEXTAREA/.test(event.target.tagName) && !document.querySelector('dialog[open]')) { event.preventDefault(); (event.shiftKey ? $('redo') : $('undo')).click(); } });
 $('reset').onclick = safely(async () => {
   if (state.busy || !state.automatic || !currentItem()) return;
-  if (!await confirmAction('Remove all brush and magic-wand touch-ups from this image and save the original processed cutout? The removed background stays removed. Your source image is untouched. Redo can reapply the edits in this tab.', 'Back to processed version?', 'Undo all touch-ups', 'Keep touch-ups')) return;
+  if (!await confirmAction('Remove all brush and magic-wand touch-ups from this image? Your crop and output size will stay the same. The source image is untouched. Redo can reapply the edits in this tab.', 'Back to processed version?', 'Undo all touch-ups', 'Keep touch-ups')) return;
   const item = currentItem(), loadId = state.loadId;
   const previous = structuredClone(state.strokes.length ? state.strokes : (item.strokes || []));
   state.busy = true; updateTools();
   try {
     const result = await api(`/jobs/${state.job.id}/items/${item.id}/edits`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({revision:state.editRevision, strokes:[]})});
-    item.revision = result.revision; item.strokes = [];
+    Object.assign(item, result); item.strokes = [];
     if (state.loadId === loadId) {
       clearSelection(); state.editRevision = result.revision; state.redo = previous.reverse(); state.strokes = []; state.dirty = false; state.view = 'result';
-      renderCanvas(); renderQueue(); notice('All touch-ups undone. The original processed cutout is restored and saved—ready to download.');
+      await acceptGeometryResult(result); notice('All touch-ups undone. Your crop and output size are kept.');
     }
   } finally { state.busy = false; updateTools(); }
 });
 $('save').onclick = safely(async () => {
   if (state.busy || !currentItem()) return;
   state.busy = true; updateTools();
-  try { const item = currentItem(); const result = await api(`/jobs/${state.job.id}/items/${item.id}/edits`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({revision:state.editRevision, strokes:state.strokes})}); item.revision = result.revision; state.editRevision = result.revision; item.strokes = structuredClone(state.strokes); state.dirty = false; notice('Touch-up saved at the original resolution.'); renderQueue(); }
+  try { const item = currentItem(); const result = await api(`/jobs/${state.job.id}/items/${item.id}/edits`, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify({revision:state.editRevision, strokes:state.strokes})}); item.strokes = structuredClone(state.strokes); state.dirty = false; await acceptGeometryResult(result); notice('Touch-up saved. Your crop and output size are kept.'); }
   finally { state.busy = false; updateTools(); }
 });
 $('download').onclick = () => { if (!state.dirty && currentItem()) window.location.href = imageURL(currentItem()) + '&download=true'; };
@@ -210,7 +260,24 @@ $('newBatch').onclick = safely(async () => { if (!await canLeave()) return; stat
 let polling = false;
 async function poll() {
   if (!state.job || polling || state.busy) return; polling = true;
-  try { const id = state.job.id, previous = currentItem()?.status; const job = await api(`/jobs/${id}`); if (state.job?.id !== id) return; state.job = job; renderQueue(); if (state.selected && previous !== 'done' && currentItem()?.status === 'done' && !state.dirty) { notice('Your cutout is ready to inspect. Try the dark background to check the edges.'); await selectFile(state.selected, true); } }
+  try {
+    const id = state.job.id, selected = currentItem(), generation = state.editGeneration || 0;
+    const previousStatus = selected?.status, previousRevision = selected?.revision || 0;
+    const job = await api(`/jobs/${id}`);
+    if (state.job?.id !== id || state.busy || generation !== (state.editGeneration || 0)) return;
+    // Keep the active edit's settings together until it can be safely refreshed.
+    const incoming = job.items.find(item => item.id === state.selected);
+    const changed = incoming?.status === 'done' && (previousStatus !== 'done' || incoming.revision !== previousRevision);
+    const modal = !!document.querySelector('dialog[open]');
+    if (changed && selected && (state.dirty || modal)) {
+      job.items[job.items.indexOf(incoming)] = selected;
+    }
+    state.job = job; renderQueue();
+    if (changed && !state.dirty && !modal) {
+      notice(previousStatus !== 'done' ? 'Your cutout is ready to inspect. Try the dark background to check the edges.' : 'The saved changes from another window are ready to review.');
+      await selectFile(state.selected, true);
+    }
+  }
   catch (error) { notice(`Connection interrupted: ${error.message} Keep the local server running; your saved work is still on disk.`); }
   finally { polling = false; }
 }

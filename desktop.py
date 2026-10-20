@@ -149,6 +149,7 @@ def self_test(report_path: Path | None, check_inference: bool = False) -> int:
         import onnxruntime as ort
         from engine import Remover, apply_strokes, load_image
         from model_manager import model_status
+        from image_geometry import apply_transform
         service = LocalServer()
         service.start()
         with urllib.request.urlopen(service.url + "/", timeout=10) as response:
@@ -175,6 +176,9 @@ def self_test(report_path: Path | None, check_inference: bool = False) -> int:
             report["checks"]["inference"] = alpha.getextrema()[0] < 64 and alpha.getextrema()[1] > 192
         edited = apply_strokes(decoded, cutout, [{"mode": "erase", "size": 20, "points": [[128, 128]]}])
         report["checks"]["editor"] = edited.getpixel((128, 128))[3] == 0
+        transformed = apply_transform(edited, {"crop": {"x": 48, "y": 16, "width": 160, "height": 224},
+                                               "resize": {"width": 80, "height": 112}})
+        report["checks"]["crop_resize"] = transformed.size == (80, 112) and transformed.mode == "RGBA"
         png = io.BytesIO()
         edited.save(png, "PNG")
         bundle = io.BytesIO()

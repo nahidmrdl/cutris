@@ -4,7 +4,7 @@ The Windows desktop release is checked with synthetic images and isolated workin
 
 ## Automated regression
 
-The regression suite covers image decoding and metadata, existing transparency, white-edge refinement, general-background fallback, erase/restore and wand replay, original preservation, upload limits, batch ordering, pause/resume/retry, PNG and ZIP output, local request protection, model integrity, resumable downloads, cancellation, and desktop lifecycle.
+The regression suite covers image decoding and metadata, existing transparency, white-edge refinement, general-background fallback, erase/restore and wand replay, reversible crop/resize, alpha-safe resampling, original preservation, upload limits, batch ordering, pause/resume/retry, PNG and ZIP output, local request protection, model integrity, resumable downloads, cancellation, and desktop lifecycle.
 
 Run from the source environment:
 
@@ -27,9 +27,11 @@ $env:CUTOUT_HOME = Join-Path $PWD 'build\native-smoke-home'
 
 For a second run, use another empty test home so the history check remains isolated. The test reuses verified source-checkout models without bundling them.
 
+`tests/native_geometry_smoke.py` checks Auto crop, manual crop, resizing, preview and export dimensions, cancel/reset behavior, and continued touch-ups in the actual renderer. It uses generated transparent artwork and a separate disposable `CUTOUT_HOME`.
+
 ## Packaged runtime
 
-The release build runs the frozen executable's self-test for static assets, the local server, image decoding, numerical/native runtime availability, edits, and PNG/ZIP handling. `--check-inference` adds real AI processing when a model is installed. The runtime report does not contain workstation paths or private image names.
+The release build runs the frozen executable's self-test for static assets, the local server, image decoding, numerical/native runtime availability, edits, crop/resize, and PNG/ZIP handling. `--check-inference` adds real AI processing when a model is installed. The runtime report does not contain workstation paths or private image names.
 
 ```powershell
 .\dist\cutrix\cutrix.exe --self-test --check-inference --report build\frozen-inference.json

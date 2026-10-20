@@ -27,7 +27,7 @@ RELEASE = ROOT / 'release'
 SOURCE_FILES = (
     '.gitattributes', '.gitignore', 'LICENSE', 'README.md', 'CONTRIBUTING.md', 'THIRD_PARTY_NOTICES.md', 'VALIDATION.md', 'branding.json',
     'requirements.txt', 'requirements-dev.txt', 'requirements-desktop.txt', 'requirements-build.txt', 'requirements-release.txt',
-    'engine.py', 'server.py', 'launch.py', 'desktop.py', 'app_paths.py', 'model_manager.py', 'model_setup_ui.py',
+    'engine.py', 'image_geometry.py', 'server.py', 'launch.py', 'desktop.py', 'app_paths.py', 'model_manager.py', 'model_setup_ui.py',
     'setup.py', 'Setup.cmd', 'Start.cmd', 'Start-browser.cmd',
 )
 SOURCE_DIRECTORIES = ('web', 'docs', 'tests', 'packaging', 'scripts', '.github')

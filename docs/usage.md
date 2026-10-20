@@ -28,6 +28,17 @@ Magic wand selections appear pink until applied. Transparent pixels act as barri
 
 Brush size is **1–500 original-image pixels**, regardless of zoom. Pending edits remain in the current window until saved. Undo and redo history remains available while that image stays open.
 
+## Crop and resize
+
+Open **Crop & resize** on a finished cutout. Save pending touch-ups first.
+
+- **Auto crop** detects the visible subject and removes unused transparent margins. It keeps soft, partly transparent edges. Opaque areas are kept even if their color matches the background.
+- **Manual crop** lets you select the area to keep or enter its position and dimensions in pixels.
+- **Resize output** sets the final width and height. Leave **Keep proportions** checked to preserve the subject's shape.
+- Review the preview, then **Apply changes** to save. **Cancel** leaves the saved image unchanged.
+
+Cropping and resizing affect the PNG and batch ZIP. The original stays intact, and later touch-ups use the full source image. Reopen **Crop & resize** to adjust the saved canvas. **Use full image** removes the crop; **Reset size** removes resizing. Auto crop uses the current cutout; run it again after touch-ups if you want new bounds.
+
 ## Move around the image
 
 - Drag to pan; use the wheel to zoom around the cursor.
@@ -42,7 +53,7 @@ Brush size is **1–500 original-image pixels**, regardless of zoom. Pending edi
 | --- | --- |
 | Input | Single-frame PNG, JPG, WebP, BMP, TIFF |
 | Limits per image | 30 MB, 24 million pixels, 12,000 pixels per side |
-| Output | sRGB RGBA PNG at the original pixel dimensions |
+| Output | sRGB RGBA PNG at the original or chosen crop and resize dimensions |
 | Batch export | Ordered ZIP with completed images and a manifest of settings and failures |
 
 Animated files and multi-page TIFFs are rejected. EXIF orientation is honored; ICC-tagged inputs are converted to sRGB when possible. Exports omit DPI and EXIF metadata. Set print size in your layout application.

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>cutrix · Background Remover</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/editor.css"><script defer src="/editor.js"></script><script defer src="/app.js"></script><script defer src="/desktop.js"></script></head>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>cutrix · Background Remover</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/editor.css"><link rel="stylesheet" href="/geometry.css"><script defer src="/editor.js"></script><script defer src="/app.js"></script><script defer src="/geometry.js"></script><script defer src="/desktop.js"></script></head>
 <body>
 <header class="header"><a id="appBrandLink" class="brand" href="/" aria-label="cutrix home"><span class="brand-icon">✂</span><span><span id="appName">cutrix</span><small>LOCAL BACKGROUND REMOVER</small></span></a><span class="privacy"><span></span>On your computer. Only.</span><button id="modelsButton" class="quiet" hidden>AI models</button><button id="historyButton" class="quiet">Previous batches</button><button id="aboutButton" class="quiet">About</button></header>
 <main>
@@ -14,7 +14,7 @@
 <div id="queue" class="queue"><div class="empty-queue">Your next batch of images belongs here.</div></div>
 <div id="settings" class="settings"><label>AI quality<select id="quality"><option value="detail">Maximum detail · BiRefNet</option><option value="fast">Faster · BiRefNet Lite</option></select></label><label>Background treatment<select id="mode"><option value="ai">Any background · AI only</option><option value="white">White illustration · edge cleanup</option></select></label><p class="hint">Use Any background for photos and general images. White illustration adds edge cleanup for artwork on a white background.</p><button id="start" class="primary full" disabled>Remove backgrounds <span>↗</span></button></div>
 <div id="batchActions" hidden><div class="progress-track"><div id="progressBar"></div></div><p id="progressLabel" role="status"></p><p id="stage" class="hint"></p><div class="action-row"><button id="pause" class="secondary">Pause after this image</button><button id="retry" class="secondary" hidden>Retry failed images</button></div><button id="zip" class="primary full" disabled>Download ordered ZIP</button><button id="newBatch" class="quiet full">＋ Start another batch</button></div>
-<p class="panel-footnote">Your originals are never overwritten. Outputs keep their full pixel dimensions.</p>
+<p class="panel-footnote">Your originals are never overwritten. Keep the full canvas, or crop and resize before exporting.</p>
 </aside>
 <section class="preview-panel panel">
 <div class="panel-heading"><div><span class="step coral">02</span><h2>Review your cutout</h2></div><span id="dimensions" class="pill">Full-resolution preview</span></div>
@@ -39,7 +39,7 @@
 <p id="selectionStatus" role="status">Click a leftover patch to preview a connected-color selection.</p>
 <p class="hint">Higher tolerance includes more colors. Pink is the selection, not a change to your image. Check the glasses frame before applying. Esc clears the selection.</p>
 </div>
-<div class="edit-actions"><button id="reset" class="secondary" title="Remove all touch-ups and restore the processed cutout, without bringing back the background" disabled>↶ Undo all touch-ups</button><span id="dirtyLabel" role="status">Select a finished image to touch up.</span><button id="save" class="secondary" disabled>Save touch-up</button><button id="download" class="primary" disabled>Download PNG ↓</button></div>
+<div class="edit-actions"><button id="reset" class="secondary" title="Remove all touch-ups and restore the processed cutout, without bringing back the background" disabled>↶ Undo all touch-ups</button><button id="geometryButton" class="secondary" disabled>Crop &amp; resize</button><span id="dirtyLabel" role="status">Select a finished image to touch up.</span><button id="save" class="secondary" disabled>Save touch-up</button><button id="download" class="primary" disabled>Download PNG ↓</button></div>
 </div>
 <div id="notes" class="notes"><strong>Good to know</strong><p>No automatic remover gets every image perfect. White-on-white details, glass, fine fur, and soft shadows may need a quick touch-up. Always inspect your final cutout.</p></div>
 </section></div>
@@ -47,5 +47,22 @@
 </main>
 <dialog id="confirmDialog"><h2 id="confirmTitle">Unsaved touch-up</h2><p id="confirmText"></p><div class="action-row"><button id="confirmNo" class="secondary">Keep editing</button><button id="confirmYes" class="primary">Discard changes</button></div></dialog>
 <dialog id="historyDialog"><div class="panel-heading"><h2>Previous batches</h2><button id="closeHistory" class="quiet">Close ✕</button></div><p class="hint">Saved on this computer. Interrupted batches can be resumed.</p><div id="historyList"></div></dialog>
+<dialog id="geometryDialog" aria-labelledby="geometryTitle" aria-describedby="geometryDescription">
+<div class="geometry-heading"><div><h2 id="geometryTitle">Crop &amp; resize</h2><p id="geometryDescription">Remove empty space and choose your final image size.</p></div><button id="geometryClose" class="quiet" aria-label="Close crop and resize">Close ✕</button></div>
+<div class="geometry-layout">
+<section class="geometry-workspace" aria-label="Crop selection">
+<div class="geometry-modes segmented" aria-label="Crop method"><button id="geometryAutoCrop" aria-pressed="false">Auto crop</button><button id="geometryManualCrop" class="active" aria-pressed="true">Manual crop</button></div>
+<div id="geometryStage" class="geometry-stage checker" tabindex="0" aria-label="Crop preview. Drag to select an area; use the coordinate fields for precise adjustments."><div id="geometryCanvasWrap"><canvas id="geometrySource"></canvas><div id="geometryCropBox" aria-hidden="true"><span data-handle="nw"></span><span data-handle="n"></span><span data-handle="ne"></span><span data-handle="e"></span><span data-handle="se"></span><span data-handle="s"></span><span data-handle="sw"></span><span data-handle="w"></span></div></div></div>
+<p id="geometryStatus" class="geometry-status" role="status">Drag a crop box, or let Auto crop detect empty transparent edges.</p>
+</section>
+<aside class="geometry-settings">
+<fieldset><legend>Crop area <span>px</span></legend><div class="geometry-fields"><label>Left<input id="geometryCropX" type="number" min="0" step="1" inputmode="numeric" aria-label="Crop left position"></label><label>Top<input id="geometryCropY" type="number" min="0" step="1" inputmode="numeric" aria-label="Crop top position"></label><label>Width<input id="geometryCropWidth" type="number" min="1" step="1" inputmode="numeric" aria-label="Crop width"></label><label>Height<input id="geometryCropHeight" type="number" min="1" step="1" inputmode="numeric" aria-label="Crop height"></label></div><button id="geometryFullImage" class="quiet small">Use full image</button></fieldset>
+<fieldset><legend>Output size</legend><label class="geometry-check"><input id="geometryResizeEnabled" type="checkbox">Resize output</label><div class="geometry-fields"><label>Width<input id="geometryResizeWidth" type="number" min="1" max="12000" step="1" inputmode="numeric" aria-label="Output width"></label><label>Height<input id="geometryResizeHeight" type="number" min="1" max="12000" step="1" inputmode="numeric" aria-label="Output height"></label></div><div class="geometry-size-actions"><label class="geometry-check"><input id="geometryAspectLock" type="checkbox" checked>Keep proportions</label><button id="geometryResetSize" class="quiet small">Reset size</button></div><p class="geometry-limit">Up to 12,000 px per side · 24 megapixels</p></fieldset>
+<div class="geometry-output"><div class="geometry-output-copy"><strong>Output preview</strong><span id="geometryOutputDimensions" class="pill"></span></div><div class="geometry-output-stage checker"><canvas id="geometryOutputPreview" aria-label="Final cropped and resized image preview"></canvas></div></div>
+</aside>
+</div>
+<div id="geometryError" class="geometry-error" role="alert" hidden></div>
+<div class="geometry-footer"><span>Your original and touch-ups stay editable.</span><div><button id="geometryCancel" class="secondary">Cancel</button><button id="geometryApply" class="primary">Apply changes</button></div></div>
+</dialog>
 <dialog id="aboutDialog"><div class="panel-heading"><h2><span id="aboutAppName">cutrix</span> <span id="appVersion"></span></h2><button id="closeAbout" class="quiet">Close ✕</button></div><p>Private, local background removal with BiRefNet. Images and edits stay on your computer. Model downloads are the only internet connection the app needs.</p><button id="savedWorkButton" class="secondary" hidden>Open saved work folder</button><details><summary>Open source licenses and credits</summary><pre id="licenseNotices" class="license-notices"></pre></details></dialog>
 </body></html>

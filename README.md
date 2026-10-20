@@ -28,7 +28,8 @@
 - **Batch work:** queue up to 50 images, reorder, pause, resume, and reopen saved batches.
 - **Local AI:** BiRefNet detail and lite models run on your CPU. No account, subscription, or image uploads.
 - **Precise repairs:** Erase, Restore, Magic wand, undo, and redo. Inspect against light, dark, or custom preview colors.
-- **Ready to use:** original-dimension transparent PNGs, individually or in an ordered ZIP. Originals stay untouched.
+- **Crop and resize:** auto crop removes empty transparent margins; manual crop and pixel sizing prepare the final canvas.
+- **Ready to use:** transparent PNGs, individually or in an ordered ZIP. Originals stay untouched.
 
 ## Get started
 

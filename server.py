@@ -21,6 +21,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from engine import ROOT, MODELS, Remover, apply_strokes, load_image, save_png
+from image_geometry import apply_transform, normalize_transform, output_size
 from app_paths import APP_ID, APP_NAME, VERSION, DATA_DIR, public_error
 from model_manager import model_status
 
@@ -102,6 +103,32 @@ def thumbnail(image, path):
     save_png(preview, path)
 
 
+def output_metadata(item):
+    """Supply geometry defaults for batches saved before cropping was added."""
+    settings = normalize_transform((item["width"], item["height"]), item.get("transform"))
+    width, height = output_size((item["width"], item["height"]), settings)
+    return {"transform": settings, "output_width": width, "output_height": height}
+
+
+def render_output(directory, strokes, transform):
+    with Image.open(directory / "original.png") as original, Image.open(directory / "automatic.png") as automatic:
+        edited = apply_strokes(original.convert("RGBA"), automatic.convert("RGBA"), strokes)
+    return apply_transform(edited, transform)
+
+
+def save_output(job, item, directory, result, *, strokes=None, transform=None):
+    save_png(result, directory / "result.png")
+    thumbnail(result, directory / "thumbnail.png")
+    if strokes is not None:
+        item["strokes"] = strokes
+    if transform is not None:
+        item["transform"] = transform
+    item["output_width"], item["output_height"] = result.size
+    item["revision"] += 1
+    persist(job)
+    return {"revision": item["revision"], **output_metadata(item)}
+
+
 def run_job(job_id):
     with LOCK:
         job = JOBS[job_id]
@@ -132,7 +159,9 @@ def run_job(job_id):
             save_png(result, directory / "result.png")
             thumbnail(result, directory / "thumbnail.png")
             with LOCK:
-                item.update(status="done", notes=notes, error=None)
+                item.update(status="done", notes=notes, error=None,
+                            transform={"crop": None, "resize": None},
+                            output_width=result.width, output_height=result.height)
         except Exception as exc:
             with LOCK:
                 item.update(status="error", error=public_error(exc, "The image could not be processed. Check the model installation, available memory, and source image, then retry."))
@@ -206,7 +235,11 @@ def create_job(files: list[UploadFile] = File(...), quality: str = Form("detail"
 def job_status(job_id: str):
     with LOCK:
         # Snapshot before the worker changes nested data during serialization.
-        return json.loads(json.dumps(get_job(job_id)))
+        job = json.loads(json.dumps(get_job(job_id)))
+        for item in job["items"]:
+            if "width" in item and "height" in item:
+                item.update(output_metadata(item))
+        return job
 
 
 @app.post("/api/jobs/{job_id}/{action}")
@@ -243,6 +276,27 @@ class Edits(BaseModel):
     strokes: list[Stroke] = Field(max_length=500)
 
 
+class Crop(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    x: int = Field(ge=0)
+    y: int = Field(ge=0)
+    width: int = Field(ge=1, le=12000)
+    height: int = Field(ge=1, le=12000)
+
+
+class Resize(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    width: int = Field(ge=1, le=12000)
+    height: int = Field(ge=1, le=12000)
+
+
+class Transform(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    revision: int = Field(ge=0)
+    crop: Crop | None = None
+    resize: Resize | None = None
+
+
 @app.put("/api/jobs/{job_id}/items/{item_id}/edits")
 def edit(job_id: str, item_id: str, edits: Edits):
     if sum(len(s.points) for s in edits.strokes) > 100000:
@@ -266,15 +320,25 @@ def edit(job_id: str, item_id: str, edits: Edits):
                 raise HTTPException(400, "A brush edit needs at least one point and no selection spans.")
             if any(not (-500 <= x <= item["width"] + 500 and -500 <= y <= item["height"] + 500) for x, y in stroke.points):
                 raise HTTPException(400, "Brush coordinates must be on the image.")
-        with Image.open(directory / "original.png") as original, Image.open(directory / "automatic.png") as automatic:
-            strokes = [s.model_dump() for s in edits.strokes]
-            result = apply_strokes(original.convert("RGBA"), automatic.convert("RGBA"), strokes)
-        save_png(result, directory / "result.png")
-        thumbnail(result, directory / "thumbnail.png")
-        item["strokes"] = strokes
-        item["revision"] += 1
-        persist(job)
-        return {"revision": item["revision"]}
+        strokes = [s.model_dump() for s in edits.strokes]
+        result = render_output(directory, strokes, item.get("transform"))
+        return save_output(job, item, directory, result, strokes=strokes)
+
+
+@app.put("/api/jobs/{job_id}/items/{item_id}/transform")
+def transform_image(job_id: str, item_id: str, transform: Transform):
+    with LOCK:
+        job, item, directory = get_item(job_id, item_id)
+        if item["status"] != "done":
+            raise HTTPException(409, "Wait for this image to finish.")
+        if transform.revision != item["revision"]:
+            raise HTTPException(409, "This image changed in another tab. Reload it before editing.")
+        try:
+            settings = normalize_transform((item["width"], item["height"]), transform.model_dump(exclude={"revision"}))
+        except ValueError as exc:
+            raise HTTPException(400, str(exc)) from exc
+        result = render_output(directory, item.get("strokes", []), settings)
+        return save_output(job, item, directory, result, transform=settings)
 
 
 @app.get("/api/jobs/{job_id}/items/{item_id}/{kind}")
