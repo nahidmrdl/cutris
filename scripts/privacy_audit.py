@@ -3,6 +3,8 @@
 The audit keeps third-party attribution intact. It checks the current account,
 home paths, configured Git identity, and optional CUTOUT_PRIVATE_TERMS (one per line).
 It also opens ZIPs and decompresses PyInstaller embedded Python archives.
+The canonical GitHub-hosted Windows account is not a personal identity; its
+upstream wheel metadata is allowed unless explicitly listed as a private term.
 """
 from __future__ import annotations
 
@@ -18,7 +20,18 @@ import zipfile
 
 
 def private_terms() -> list[str]:
-    values = {str(Path.home()), str(Path.home()).replace('\\', '/'), os.environ.get('USERNAME', '')}
+    home = str(Path.home())
+    username = os.environ.get('USERNAME', '')
+    hosted_windows_account = (
+        os.environ.get('GITHUB_ACTIONS') == 'true'
+        and os.environ.get('RUNNER_ENVIRONMENT') == 'github-hosted'
+        and os.environ.get('RUNNER_OS') == 'Windows'
+        and username.casefold() == 'runneradmin'
+        and home.replace('\\', '/').rstrip('/').casefold() == 'c:/users/runneradmin'
+    )
+    # Third-party Windows wheels contain this same public build account. Never
+    # suppress a developer's account, a self-hosted runner, or explicit terms.
+    values = set() if hosted_windows_account else {home, home.replace('\\', '/'), username}
     for key in ('user.name', 'user.email'):
         for scope in ((), ('--global',)):
             try:

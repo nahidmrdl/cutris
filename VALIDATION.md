@@ -39,6 +39,8 @@ The release build runs the frozen executable's self-test for static assets, the 
 
 Build tooling scans the source archive and packaged runtime for the build account identity, configured Git name/email, and workstation home path. The scan includes decompressed embedded Python code. It excludes saved work, model weights, backups, logs, and private example images from the source payload.
 
+On GitHub-hosted Windows runners, the generic `runneradmin` account and its standard home path are excluded from automatic identity detection because upstream wheels contain the same public build metadata. Local and self-hosted builds keep the account checks. Configured Git identities and explicit `CUTOUT_PRIVATE_TERMS` are always checked.
+
 ## Scope and limits
 
 The model downloader is checked with deterministic simulated servers for interruption, HTTP Range behavior, corrupt data, size mismatches, retries, cancellation, and concurrent setup. Real-host download and installer smoke results are recorded locally under ignored build output.
