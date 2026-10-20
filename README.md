@@ -25,11 +25,21 @@
 
 ## From a batch to a finished cutout
 
+![The cutris editor with a compact image queue, adaptive preview, and editing and export controls visible together.](docs/assets/workspace.png)
+
 - **Batch work:** queue up to 50 images, reorder, pause, resume, and reopen saved batches.
 - **Local AI:** BiRefNet detail and lite models run on your CPU. No account, subscription, or image uploads.
 - **Precise repairs:** Erase, Restore, Magic wand, undo, and redo. Inspect against light, dark, or custom preview colors.
-- **Crop and resize:** auto crop removes empty transparent margins; manual crop and pixel sizing prepare the final canvas.
+- **Batch tools:** auto crop a batch, resize selected images, or make square icons with transparent padding.
+- **Crop and resize:** adjust an individual crop and output size. PNGs and ZIPs auto crop by default and respect saved settings.
 - **Ready to use:** transparent PNGs, individually or in an ordered ZIP. Originals stay untouched.
+
+<details>
+<summary>Preview batch tools</summary>
+
+![Select cutouts and preview square icons with a chosen canvas size and transparent padding.](docs/assets/batch-tools.png)
+
+</details>
 
 ## Put your cutouts to work
 
@@ -65,6 +75,7 @@ Use 64-bit Python 3.11–3.13 on Windows. Run `Setup.cmd`, then `Start.cmd` to o
 | Learn more | |
 | --- | --- |
 | [Publish a release](docs/releasing.md) | Run GitHub Actions with a version and semicolon-separated release notes. |
+| [Release notes](CHANGELOG.md) | Changes prepared for the next release. |
 | [Privacy & storage](docs/privacy.md) | Where images, models, and saved batches live. |
 | [Branding](docs/branding.md) | Change the app name and release metadata. |
 | [Contributing](CONTRIBUTING.md) | Report issues and propose changes. |

@@ -55,6 +55,12 @@ def test_png_download_auto_crops_soft_alpha_without_changing_saved_work(api, leg
     assert api.get(f'/api/jobs/{job["id"]}').json() == metadata
     assert png(api.get(path + "original?download=true")).size == (80, 60)
     assert png(api.get(path + "automatic")).size == (80, 60)
+    with zipfile.ZipFile(io.BytesIO(api.get(f'/api/jobs/{job["id"]}/download.zip').content)) as archive:
+        assert archive.read(item["output"]) == response.content
+        exported_metadata = json.loads(archive.read("batch-manifest.json"))["items"][0]
+        assert (exported_metadata["output_width"], exported_metadata["output_height"]) == (41, 31)
+        assert exported_metadata["transform"]["crop"] == {"x": 19, "y": 14, "width": 41, "height": 31}
+    assert api.get(f'/api/jobs/{job["id"]}').json() == metadata
 
 
 def test_default_download_uses_the_saved_touch_up_alpha(api):

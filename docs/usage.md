@@ -34,7 +34,7 @@ On desktop and laptop windows, the preview adapts to the available height so edi
 
 Open **Crop & resize** on a finished cutout. Save pending touch-ups first.
 
-**Download PNG** automatically trims empty transparent margins when you have not applied crop or resize settings. It uses the saved touch-ups and keeps even faint, partly transparent edges. To keep the full canvas, choose **Use full image**, turn off resizing, and **Apply changes**. Saved geometry takes precedence over the automatic download trim.
+PNG and ZIP downloads automatically trim empty transparent margins when you have not applied crop or resize settings. They use the saved touch-ups and keep even faint, partly transparent edges. To keep the full canvas, choose **Use full image**, turn off resizing, and **Apply changes**. Saved geometry takes precedence over the automatic download trim.
 
 - **Auto crop** is selected for a new crop and detects unused transparent margins immediately. It keeps soft, partly transparent edges. Opaque areas are kept even if their color matches the background.
 - Dragging the crop box, entering crop dimensions, or changing resizing switches to **Manual crop**. You can also select Manual crop to draw a new selection.
@@ -42,6 +42,20 @@ Open **Crop & resize** on a finished cutout. Save pending touch-ups first.
 - Review the preview, then **Apply changes** to save. **Cancel** leaves the saved image unchanged.
 
 Cropping and resizing affect the PNG and batch ZIP. The original stays intact, and later touch-ups use the full source image. Reopen **Crop & resize** to adjust the saved canvas; custom crops and resizing reopen in Manual mode with their saved values. **Use full image** removes the crop; **Reset size** removes resizing. Auto crop uses the current cutout; run it again after touch-ups if you want new bounds.
+
+## Batch tools
+
+Finish or pause processing, save pending touch-ups, then open **Batch tools**. All completed images are selected initially. Use the checkboxes or **All / None** to choose which images to change. The preview shows the first selected image.
+
+| Action | Result |
+| --- | --- |
+| **Auto crop** | Trim transparent margins on every selected cutout and reset its output size. Existing resize and square canvas settings are replaced. |
+| **Resize images** | Keep saved crops and set a new size. **Fit within these dimensions** preserves proportions; turn it off for exact dimensions. Square canvas settings are replaced. |
+| **Square icons** | Auto crop each cutout, fit and center it on a square canvas, and add optional transparent padding in pixels. |
+
+Choose **Apply to images** to save. Your source images and touch-ups stay editable. PNG and ZIP exports use the same saved results. The ZIP manifest records the dimensions and crop of the exported PNGs.
+
+Square canvases support up to 4,898 pixels per side, within the 24-megapixel limit. To adjust a square canvas, select its image in Batch tools. **Crop & resize** also lets you remove the square canvas while keeping the crop and touch-ups.
 
 ## Move around the image
 
@@ -58,7 +72,7 @@ Cropping and resizing affect the PNG and batch ZIP. The original stays intact, a
 | Input | Single-frame PNG, JPG, WebP, BMP, TIFF |
 | Limits per image | 30 MB, 24 million pixels, 12,000 pixels per side |
 | PNG download | sRGB RGBA PNG, auto cropped by default or using your saved crop and resize settings |
-| Batch export | Ordered ZIP using saved image dimensions, with a manifest of settings and failures |
+| Batch export | Ordered ZIP with the same crop and size rules as individual PNGs, plus a manifest of settings and failures |
 
 Animated files and multi-page TIFFs are rejected. EXIF orientation is honored; ICC-tagged inputs are converted to sRGB when possible. Exports omit DPI and EXIF metadata. Set print size in your layout application.
 

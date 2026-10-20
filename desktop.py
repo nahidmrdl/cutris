@@ -154,6 +154,8 @@ def self_test(report_path: Path | None, check_inference: bool = False) -> int:
         service.start()
         with urllib.request.urlopen(service.url + "/", timeout=10) as response:
             report["checks"]["workspace"] = b'id="canvas"' in response.read()
+        with urllib.request.urlopen(service.url + "/batch.js", timeout=10) as response:
+            report["checks"]["batch_tools_assets"] = b'function applyBatchTools' in response.read()
         report["checks"]["models"] = model_status()
         report["checks"]["onnx_runtime"] = "CPUExecutionProvider" in ort.get_available_providers()
         with Image.open(RESOURCE_DIR / "packaging" / "assets" / "app.ico") as icon:

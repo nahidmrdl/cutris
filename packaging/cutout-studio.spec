@@ -10,7 +10,7 @@ datas = [(str(root / 'web'), 'web'), (str(stage / 'licenses'), 'licenses'),
          (str(root / 'packaging' / 'assets' / 'app.ico'), 'packaging/assets')]
 if (root / 'docs').is_dir():
     datas.append((str(root / 'docs'), 'docs'))
-for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'branding.json'):
+for name in ('LICENSE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'CHANGELOG.md', 'branding.json'):
     datas.append((str(root / name), '.'))
 datas += collect_data_files('webview')
 datas += collect_data_files('onnxruntime', includes=['LICENSE', 'ThirdPartyNotices.txt'])

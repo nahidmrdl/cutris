@@ -60,3 +60,26 @@ def test_invalid_geometry_is_rejected_before_image_allocation(settings):
 
 def test_output_limits_are_inclusive():
     assert output_size((10, 10), {"resize": {"width": 12000, "height": 2000}}) == (12000, 2000)
+
+
+def test_square_canvas_centers_subject_with_transparent_padding_and_soft_alpha():
+    source = Image.new("RGBA", (40, 20), (220, 30, 60, 128))
+    settings = {"canvas": {"size": 80, "padding": 10}}
+    result = apply_transform(source, settings)
+    assert result.size == output_size(source.size, settings) == (80, 80)
+    assert result.getchannel("A").getbbox() == (10, 25, 70, 55)
+    assert result.getpixel((40, 40))[3] == 128
+    assert all(abs(actual-expected)<=1 for actual,expected in zip(result.getpixel((40,40))[:3],(220,30,60)))
+    assert result.getpixel((0, 0)) == (0, 0, 0, 0)
+    assert source.size == (40, 20)
+
+
+@pytest.mark.parametrize("canvas", [
+    {"size": 0, "padding": 0}, {"size": 5000, "padding": 0},
+    {"size": 64, "padding": 32}, {"size": 64, "padding": -1},
+    {"size": 64.0, "padding": 1}, {"size": 64, "padding": True},
+    {"size": 64}, {"size": 64, "padding": 0, "extra": 1},
+])
+def test_invalid_square_canvases_are_rejected(canvas):
+    with pytest.raises(ValueError):
+        normalize_transform((40, 20), {"canvas": canvas})

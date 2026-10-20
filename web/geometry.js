@@ -1,6 +1,6 @@
 'use strict';
 
-const geometryState = {source:null, crop:null, autoBounds:undefined, scale:1, drag:null, busy:false, mode:'auto', newCrop:false, initialized:false};
+const geometryState = {source:null, crop:null, canvas:null, autoBounds:undefined, scale:1, drag:null, busy:false, mode:'auto', newCrop:false, initialized:false};
 const geometryCropFields = ['geometryCropX','geometryCropY','geometryCropWidth','geometryCropHeight'];
 
 function geometryInteger(id) {
@@ -16,11 +16,11 @@ function geometryCropFromFields() {
 }
 
 function geometryOutputSize() {
-  if (!$('geometryResizeEnabled').checked) return {width:geometryState.crop.width,height:geometryState.crop.height};
+  if (!$('geometryResizeEnabled').checked) return geometryState.canvas ? {width:geometryState.canvas.size,height:geometryState.canvas.size} : {width:geometryState.crop.width,height:geometryState.crop.height};
   const width = geometryInteger('geometryResizeWidth'), height = geometryInteger('geometryResizeHeight');
   if (![width,height].every(Number.isSafeInteger) || width < 1 || height < 1) throw new Error('Enter a whole pixel width and height, starting at 1.');
   if (width > 12000 || height > 12000 || width * height > 24000000) throw new Error('Choose a size up to 12,000 pixels per side and 24 megapixels in total.');
-  return {width,height};
+  return geometryState.canvas ? {width:geometryState.canvas.size,height:geometryState.canvas.size} : {width,height};
 }
 
 function geometryError(message = '') {
@@ -67,6 +67,9 @@ function geometryRefresh() {
   for (const id of ['geometryResizeWidth','geometryResizeHeight','geometryAspectLock']) $(id).disabled = geometryState.busy || !resize;
   for (const id of ['geometryAutoCrop','geometryManualCrop','geometryFullImage','geometryResizeEnabled','geometryResetSize','geometryClose','geometryCancel']) $(id).disabled = geometryState.busy;
   $('geometryResetSize').disabled = geometryState.busy || !resize;
+  $('geometryRemoveCanvas').disabled = geometryState.busy;
+  $('geometryCanvasSettings').hidden = !geometryState.canvas;
+  if (geometryState.canvas) $('geometryCanvasInfo').textContent = `${geometryState.canvas.size} × ${geometryState.canvas.size} px · ${geometryState.canvas.padding} px padding`;
   $('geometryDialog').setAttribute('aria-busy', String(geometryState.busy));
   $('geometryApply').textContent = geometryState.busy ? 'Saving…' : 'Apply changes';
   try {
@@ -80,7 +83,13 @@ function geometryRefresh() {
     preview.height = Math.max(1,Math.round(size.height * ratio));
     const context = preview.getContext('2d'), crop = geometryState.crop;
     context.imageSmoothingEnabled = true; context.imageSmoothingQuality = 'high';
-    context.drawImage(geometryState.source,crop.x,crop.y,crop.width,crop.height,0,0,preview.width,preview.height);
+    if (geometryState.canvas) {
+      const {size,padding} = geometryState.canvas;
+      const width=resize?geometryInteger('geometryResizeWidth'):crop.width, height=resize?geometryInteger('geometryResizeHeight'):crop.height;
+      const scale=Math.min((size-2*padding)/width,(size-2*padding)/height);
+      const fittedWidth=Math.max(1,Math.round(width*scale)),fittedHeight=Math.max(1,Math.round(height*scale));
+      context.drawImage(geometryState.source,crop.x,crop.y,crop.width,crop.height,(size-fittedWidth)/2*ratio,(size-fittedHeight)/2*ratio,fittedWidth*ratio,fittedHeight*ratio);
+    } else context.drawImage(geometryState.source,crop.x,crop.y,crop.width,crop.height,0,0,preview.width,preview.height);
   } catch (error) {
     geometryError(error.message);
     $('geometryApply').disabled = true;
@@ -195,13 +204,14 @@ function openGeometry() {
   setTool(null);
   const source = getWorkingCanvas(), item = currentItem(), transform = item.transform || {};
   geometryState.crop = transform.crop ? {...transform.crop} : {x:0,y:0,width:source.width,height:source.height};
+  geometryState.canvas = transform.canvas ? {...transform.canvas} : null;
   geometryState.drag = null; geometryState.busy = false;
   const preview = $('geometrySource'); preview.width=source.width; preview.height=source.height; preview.getContext('2d').drawImage(source,0,0);
   geometryState.source = preview; geometryState.autoBounds = undefined;
   geometrySyncCropFields();
   const detected = geometryDetectCrop();
   const matchesAuto = transform.crop && detected && ['x','y','width','height'].every(key => transform.crop[key] === detected[key]);
-  const auto = !transform.resize && (!transform.crop || matchesAuto);
+  const auto = !transform.resize && !transform.canvas && (!transform.crop || matchesAuto);
   geometrySetMode(auto ? 'auto' : 'manual'); geometrySetNewCrop(false);
   $('geometryResizeEnabled').checked = !!transform.resize;
   $('geometryResizeWidth').value = transform.resize?.width || geometryState.crop.width;
@@ -219,14 +229,15 @@ async function geometryApply() {
   if (geometryState.busy || !geometryState.source) return;
   let crop, resize;
   try {
-    crop = geometryCropFromFields(); resize = $('geometryResizeEnabled').checked ? geometryOutputSize() : null;
+    crop = geometryCropFromFields(); geometryOutputSize();
+    resize = $('geometryResizeEnabled').checked ? {width:geometryInteger('geometryResizeWidth'),height:geometryInteger('geometryResizeHeight')} : null;
   } catch (error) { geometryError(error.message); return; }
   const source=geometryState.source, item=currentItem();
   if (crop.x===0 && crop.y===0 && crop.width===source.width && crop.height===source.height) crop=null;
   geometryState.busy=true; state.busy=true; updateTools(); geometryRefresh();
   let failure='';
   try {
-    const result = await api(`/jobs/${state.job.id}/items/${item.id}/transform`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:state.editRevision,crop,resize})});
+    const result = await api(`/jobs/${state.job.id}/items/${item.id}/transform`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({revision:state.editRevision,crop,resize,canvas:geometryState.canvas})});
     await acceptGeometryResult(result);
     $('geometryDialog').close();
   } catch (error) { failure=error.message; }
@@ -251,6 +262,7 @@ function initializeGeometry() {
   $('geometryResizeHeight').oninput=() => manualResize('height');
   $('geometryAspectLock').onchange=() => manualResize('width');
   $('geometryResetSize').onclick=() => { $('geometryResizeEnabled').checked=false; $('geometryAspectLock').checked=true; manualResize(); };
+  $('geometryRemoveCanvas').onclick=() => { geometryState.canvas=null; geometrySetMode('manual'); geometryRefresh(); };
   $('geometryApply').onclick=geometryApply;
   const close=() => { if (!geometryState.busy) $('geometryDialog').close(); };
   $('geometryCancel').onclick=close; $('geometryClose').onclick=close;

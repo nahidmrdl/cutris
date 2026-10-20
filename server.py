@@ -42,7 +42,15 @@ def persist(job):
     path = DATA / job["id"] / "manifest.json"
     temp = path.with_suffix(".tmp")
     temp.write_text(json.dumps(job, ensure_ascii=False, indent=2), encoding="utf-8")
-    os.replace(temp, path)
+    # Windows scanners can briefly hold the destination after an atomic save.
+    for attempt in range(5):
+        try:
+            os.replace(temp, path)
+            break
+        except PermissionError:
+            if attempt == 4:
+                raise
+            time.sleep(.025 * (attempt + 1))
 
 
 for path in DATA.glob("*/manifest.json"):
@@ -115,6 +123,28 @@ def render_output(directory, strokes, transform):
     with Image.open(directory / "original.png") as original, Image.open(directory / "automatic.png") as automatic:
         edited = apply_strokes(original.convert("RGBA"), automatic.convert("RGBA"), strokes)
     return apply_transform(edited, transform)
+
+
+def alpha_crop(image):
+    bounds = image.getchannel("A").getbbox()
+    if not bounds or bounds == (0, 0, *image.size):
+        return None
+    left, top, right, bottom = bounds
+    return {"x": left, "y": top, "width": right-left, "height": bottom-top}
+
+
+def prepare_download(item, path):
+    """Share export geometry between single PNGs and ZIPs without changing saved work."""
+    settings = item.get("transform") or {}
+    automatic = not item.get("geometry_applied") and not any(settings.get(key) for key in ("crop", "resize", "canvas"))
+    with Image.open(path) as image:
+        crop = alpha_crop(image) if automatic else None
+        size = image.size
+        if crop:
+            output = io.BytesIO()
+            image.crop((crop["x"], crop["y"], crop["x"]+crop["width"], crop["y"]+crop["height"])).save(output, format="PNG", compress_level=6)
+            return output.getvalue(), (crop["width"], crop["height"]), crop
+    return None, size, None
 
 
 def save_output(job, item, directory, result, *, strokes=None, transform=None):
@@ -293,11 +323,110 @@ class Resize(BaseModel):
     height: int = Field(ge=1, le=12000)
 
 
+class SquareCanvas(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    size: int = Field(ge=1, le=12000)
+    padding: int = Field(ge=0, le=5999)
+
+
 class Transform(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     revision: int = Field(ge=0)
     crop: Crop | None = None
     resize: Resize | None = None
+    canvas: SquareCanvas | None = None
+
+
+class BatchTarget(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    revision: int = Field(ge=0)
+
+
+class BatchGeometry(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+    items: list[BatchTarget] = Field(min_length=1, max_length=50)
+    operation: str = Field(pattern="^(auto|resize|square)$")
+    width: int = Field(default=512, ge=1, le=12000)
+    height: int = Field(default=512, ge=1, le=12000)
+    keep_proportions: bool = True
+    size: int = Field(default=512, ge=1, le=12000)
+    padding: int = Field(default=0, ge=0, le=5999)
+
+
+def validate_batch_options(request):
+    try:
+        if request.operation == "square":
+            normalize_transform((1, 1), {"canvas": {"size": request.size, "padding": request.padding}})
+        elif request.operation == "resize":
+            normalize_transform((1, 1), {"resize": {"width": request.width, "height": request.height}})
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+def batch_result(item, directory, request):
+    settings = normalize_transform((item["width"], item["height"]), item.get("transform"))
+    if request.operation in {"auto", "square"}:
+        full = render_output(directory, item.get("strokes", []), None)
+        settings = {"crop": alpha_crop(full), "resize": None}
+        if request.operation == "square":
+            settings["canvas"] = {"size": request.size, "padding": request.padding}
+        return apply_transform(full, settings), settings
+    base_width, base_height = output_size((item["width"], item["height"]), {"crop": settings["crop"]})
+    width, height = request.width, request.height
+    if request.keep_proportions:
+        scale = min(width/base_width, height/base_height)
+        width, height = max(1, round(base_width*scale)), max(1, round(base_height*scale))
+    settings = normalize_transform((item["width"], item["height"]), {
+        "crop": settings["crop"], "resize": {"width": width, "height": height},
+    })
+    return render_output(directory, item.get("strokes", []), settings), settings
+
+
+@app.post("/api/jobs/{job_id}/geometry/preview")
+def batch_preview(job_id: str, request: BatchGeometry):
+    with LOCK:
+        validate_batch_options(request)
+        if len(request.items) != 1:
+            raise HTTPException(400, "Choose one image for the preview.")
+        target = request.items[0]
+        _, item, directory = get_item(job_id, target.id)
+        if item["status"] != "done" or item["revision"] != target.revision:
+            raise HTTPException(409, "This image changed. Refresh the batch and try again.")
+        try:
+            result, _ = batch_result(item, directory, request)
+        except Exception as exc:
+            raise HTTPException(400, public_error(exc, "This preview could not be prepared. Try another image.")) from exc
+        output = io.BytesIO()
+        width, height = result.size
+        result.thumbnail((280, 180), Image.Resampling.LANCZOS)
+        result.save(output, format="PNG")
+        return Response(output.getvalue(), media_type="image/png", headers={"X-Output-Width": str(width), "X-Output-Height": str(height)})
+
+
+@app.put("/api/jobs/{job_id}/geometry")
+def batch_geometry(job_id: str, request: BatchGeometry):
+    with LOCK:
+        job = get_job(job_id)
+        if job["status"] not in {"complete", "paused"}:
+            raise HTTPException(409, "Pause the batch or wait for it to finish before changing images.")
+        if len({target.id for target in request.items}) != len(request.items):
+            raise HTTPException(400, "Select each image only once.")
+        targets = []
+        for target in request.items:
+            _, item, directory = get_item(job_id, target.id)
+            if item["status"] != "done" or item["revision"] != target.revision:
+                raise HTTPException(409, "An image changed or is not ready. Refresh the batch and try again.")
+            targets.append((item, directory))
+        validate_batch_options(request)
+        updated, errors = [], []
+        for item, directory in targets:
+            try:
+                result, settings = batch_result(item, directory, request)
+                updated.append({"id": item["id"], **save_output(job, item, directory, result, transform=settings)})
+            except Exception as exc:
+                errors.append({"id": item["id"], "error": public_error(exc, "This image could not be updated. Try it again.")})
+        return {"items": updated, "errors": errors}
 
 
 @app.put("/api/jobs/{job_id}/items/{item_id}/edits")
@@ -358,19 +487,12 @@ def image_file(job_id: str, item_id: str, kind: str, download: bool = False):
                     thumbnail(original.convert("RGBA"), path)
         if not path.is_file():
             raise HTTPException(404, "Image is not ready.")
-        settings = item.get("transform") or {}
-        if (download and kind == "result" and not item.get("geometry_applied")
-                and not settings.get("crop") and not settings.get("resize")):
-            # Trim the downloaded copy only; previews and source-coordinate edits
-            # keep their saved canvas. Explicit full-image choices are preserved.
-            with Image.open(path) as image:
-                bounds = image.getchannel("A").getbbox()
-                if bounds and bounds != (0, 0, *image.size):
-                    output = io.BytesIO()
-                    image.crop(bounds).save(output, format="PNG", compress_level=6)
-                    return Response(output.getvalue(), media_type="image/png", headers={
-                        "Content-Disposition": "attachment; filename*=utf-8''" + quote(item["output"], safe=""),
-                    })
+        if download and kind == "result":
+            data, _, _ = prepare_download(item, path)
+            if data is not None:
+                return Response(data, media_type="image/png", headers={
+                    "Content-Disposition": "attachment; filename*=utf-8''" + quote(item["output"], safe=""),
+                })
         return FileResponse(path, media_type="image/png", filename=item["output"] if download else None)
 
 
@@ -384,10 +506,22 @@ def download_zip(job_id: str):
         # A spool avoids keeping a 50-image archive in RAM.
         import tempfile
         archive = tempfile.SpooledTemporaryFile(max_size=8 * 1024 * 1024)
+        manifest = json.loads(json.dumps(job))
+        metadata = {item["id"]: item for item in manifest["items"]}
         with zipfile.ZipFile(archive, "w", compression=zipfile.ZIP_STORED) as bundle:
             for item in ready:
-                bundle.write(DATA / job_id / item["id"] / "result.png", item["output"])
-            bundle.writestr("batch-manifest.json", json.dumps(job, ensure_ascii=False, indent=2))
+                path = DATA / job_id / item["id"] / "result.png"
+                data, size, crop = prepare_download(item, path)
+                if data is None:
+                    bundle.write(path, item["output"])
+                else:
+                    bundle.writestr(item["output"], data)
+                exported = metadata[item["id"]]
+                exported["output_width"], exported["output_height"] = size
+                if crop:
+                    exported["transform"] = {"crop": crop, "resize": None}
+                    exported["auto_cropped_on_export"] = True
+            bundle.writestr("batch-manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
         archive.seek(0)
     def stream():
         try:

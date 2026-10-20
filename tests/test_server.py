@@ -19,12 +19,21 @@ def api(tmp_path, monkeypatch):
             progress("Testing")
             return image, ["Synthetic test"]
     monkeypatch.setattr(server, "REMOVER", FakeRemover())
+    futures = []
+    original_submit = server.POOL.submit
+    def submit(*args, **kwargs):
+        future = original_submit(*args, **kwargs)
+        futures.append(future)
+        return future
+    monkeypatch.setattr(server.POOL, "submit", submit)
     from fastapi.testclient import TestClient
     with TestClient(server.app) as client:
         client.headers.update({"X-Cutout-Token": server.TOKEN})
         yield client
     # Let the background test job finish before monkeypatch restores its storage.
     server.POOL.submit(lambda: None).result(timeout=10)
+    for future in futures:
+        future.result(timeout=10)
 
 
 def picture():
@@ -32,7 +41,8 @@ def picture():
 
 
 def wait(api, job_id):
-    for _ in range(100):
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
         job = api.get("/api/jobs/" + job_id).json()
         if job["status"] == "complete":
             return job

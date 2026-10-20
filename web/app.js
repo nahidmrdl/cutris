@@ -47,9 +47,10 @@ function renderQueue() {
     $('pause').hidden = job.status === 'complete'; $('pause').disabled = job.status === 'pausing';
     $('pause').textContent = job.status === 'paused' ? 'Resume batch' : 'Pause after this image';
     $('retry').hidden = !failed || !['paused', 'complete'].includes(job.status);
-    $('zip').disabled = !ready || state.dirty; $('zip').textContent = `Download ${ready} PNG${ready === 1 ? '' : 's'} · ordered ZIP`;
+    $('zip').disabled = !ready || state.dirty || state.busy; $('zip').textContent = `Download ${ready} PNG${ready === 1 ? '' : 's'} · ordered ZIP`;
     $('newBatch').disabled = state.busy || !['paused', 'complete'].includes(job.status);
   }
+  if (typeof updateBatchTools === 'function') updateBatchTools();
 }
 async function addFiles(files) {
   if (state.job || state.busy) return;
@@ -159,19 +160,24 @@ function renderCanvas() {
     ctx.drawImage(result ? state.automatic : state.original, 0, 0);
     if (result) state.strokes.forEach(stroke => paint(stroke));
     const transform = currentItem()?.transform;
-    if (outputView && (transform?.crop || transform?.resize)) {
+    if (outputView && (transform?.crop || transform?.resize || transform?.canvas)) {
       const crop = transform.crop || {x:0, y:0, width:canvas.width, height:canvas.height};
       const width = transform.resize?.width || crop.width, height = transform.resize?.height || crop.height;
       const preview = document.createElement('canvas'); preview.width = width; preview.height = height;
       const context = preview.getContext('2d'); context.imageSmoothingQuality = 'high';
       context.drawImage(canvas, crop.x, crop.y, crop.width, crop.height, 0, 0, width, height);
-      canvas.width = width; canvas.height = height; ctx.drawImage(preview, 0, 0);
+      if (transform.canvas) {
+        const {size, padding} = transform.canvas, scale = Math.min((size-2*padding)/width,(size-2*padding)/height);
+        const fittedWidth = Math.max(1,Math.round(width*scale)), fittedHeight = Math.max(1,Math.round(height*scale));
+        canvas.width = size; canvas.height = size;
+        ctx.imageSmoothingQuality = 'high'; ctx.drawImage(preview,(size-fittedWidth)/2,(size-fittedHeight)/2,fittedWidth,fittedHeight);
+      } else { canvas.width = width; canvas.height = height; ctx.drawImage(preview, 0, 0); }
     }
   }
   $('dimensions').textContent = `${canvas.width} × ${canvas.height} px`;
   const [width, height] = outputDimensions();
-  const transformed = !!(currentItem()?.transform?.crop || currentItem()?.transform?.resize);
-  $('imageStatus').textContent = !result ? (currentItem()?.error || 'Original · unchanged') : state.tool && transformed ? `Editing full canvas · output ${width} × ${height} px` : transformed ? `Transparent PNG · ${currentItem().transform.crop ? (currentItem().transform.resize ? 'cropped and resized' : 'cropped') : 'resized'}` : 'Transparent PNG · original dimensions';
+  const transformed = !!(currentItem()?.transform?.crop || currentItem()?.transform?.resize || currentItem()?.transform?.canvas);
+  $('imageStatus').textContent = !result ? (currentItem()?.error || 'Original · unchanged') : state.tool && transformed ? `Editing full canvas · output ${width} × ${height} px` : transformed ? `Transparent PNG · ${currentItem().transform.canvas ? 'square canvas' : currentItem().transform.crop ? (currentItem().transform.resize ? 'cropped and resized' : 'cropped') : 'resized'}` : 'Transparent PNG · original dimensions';
   if (previousWidth !== canvas.width || previousHeight !== canvas.height) panPosition = null;
   layoutCanvas();
 }
@@ -188,6 +194,7 @@ function updateTools() {
   if (typeof syncDesktopState === 'function') syncDesktopState();
   const ready = !!state.automatic && currentItem()?.status === 'done';
   if (typeof updateGeometryButton === 'function') updateGeometryButton();
+  if (typeof updateBatchTools === 'function') updateBatchTools();
   for (const id of ['eraseTool','restoreTool','wandTool','brushSize','brushNumber','tolerance','toleranceNumber']) $(id).disabled = !ready || state.busy;
   $('doneEditing').hidden = !state.tool;
   $('doneEditing').disabled = state.busy;
@@ -198,7 +205,7 @@ function updateTools() {
   $('historyButton').disabled = state.busy;
   if (state.job) $('newBatch').disabled = state.busy || !['paused','complete'].includes(state.job.status);
   $('save').disabled = !ready || !state.dirty || state.busy; $('download').disabled = !ready || state.dirty || state.busy;
-  if (state.job) $('zip').disabled = state.dirty || !state.job.items.some(i => i.status === 'done');
+  if (state.job) $('zip').disabled = state.busy || state.dirty || !state.job.items.some(i => i.status === 'done');
   $('dirtyLabel').textContent = state.dirty ? 'Unsaved touch-up · save before downloading' : ready ? 'Saved · original safely preserved' : 'Select a finished image to touch up.';
   $('resultView').classList.toggle('active', state.view === 'result'); $('originalView').classList.toggle('active', state.view === 'original');
   $('resultView').setAttribute('aria-pressed', state.view === 'result'); $('originalView').setAttribute('aria-pressed', state.view === 'original');

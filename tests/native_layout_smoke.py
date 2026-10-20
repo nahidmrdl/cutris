@@ -129,7 +129,7 @@ def main():
             })()""")
             check('touching_auto_crop_switches_manual', "geometryState.mode==='manual'")
             window.evaluate_js("$('geometryCancel').click()")
-            check('close_buttons_are_accessible_icons', "[...document.querySelectorAll('.dialog-close')].length===3 && [...document.querySelectorAll('.dialog-close')].every(b=>b.getAttribute('aria-label') && b.querySelector('svg') && !b.textContent.trim())")
+            check('close_buttons_are_accessible_icons', "[...document.querySelectorAll('.dialog-close')].length===4 && [...document.querySelectorAll('.dialog-close')].every(b=>b.getAttribute('aria-label') && b.querySelector('svg') && !b.textContent.trim())")
 
             stage = 'narrow viewport flow'
             for width, height in [(740,900),(390,844)]:
