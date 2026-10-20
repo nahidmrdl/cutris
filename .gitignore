@@ -1,0 +1,67 @@
+# Local environments and Python caches
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Private image batches, model weights, examples, and local backups
+data/
+models/
+backups/
+example-results/
+private/
+local-data/
+logs/
+test-output/
+test-results/
+*.onnx
+*.download
+*.partial
+*.bak
+*.old
+
+# Credentials, local configuration, and workstation/editor state
+.env
+.env.*
+!.env.example
+.aws/
+.codex/
+.agents/
+.idea/
+.vscode/
+*.user
+*.suo
+*.log
+*.log.*
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# Generated binaries, archives, generated legal inventories, and build caches
+build/
+dist/
+release/
+releases/
+wheelhouse/
+*.egg-info/
+*.exe
+*.msi
+*.msix
+*.zip
+*.7z
+*.pdb
+*.dmp
+.test-*/
+
+# Regenerated from branding.json for every release build
+/packaging/windows-version.txt
+
+# Local-only validation helper from the original working app
+/verify_example.py
