@@ -8,8 +8,8 @@ from PIL import Image
 from test_server import api, picture, wait
 
 
-def create(api, data=None):
-    response = api.post("/api/jobs", files=[("files", ("cutout.png", data or picture(), "image/png"))])
+def create(api, data=None, name="cutout.png"):
+    response = api.post("/api/jobs", files=[("files", (name, data or picture(), "image/png"))])
     assert response.status_code == 200
     job = wait(api, response.json()["id"])
     item = job["items"][0]
@@ -20,6 +20,77 @@ def png(response):
     assert response.status_code == 200
     with Image.open(io.BytesIO(response.content)) as image:
         return image.convert("RGBA")
+
+
+def transparent_subject():
+    source = Image.new("RGBA", (80, 60), (170, 30, 90, 0))
+    source.paste((40, 100, 200, 255), (20, 15, 60, 45))
+    source.putpixel((19, 14), (40, 100, 200, 1))
+    data = io.BytesIO()
+    source.save(data, "PNG")
+    return data.getvalue()
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_png_download_auto_crops_soft_alpha_without_changing_saved_work(api, legacy):
+    import server
+    from urllib.parse import unquote
+
+    job, item, path = create(api, transparent_subject(), name="récompense.png")
+    if legacy:
+        for field in ("transform", "geometry_applied", "output_width", "output_height"):
+            server.JOBS[job["id"]]["items"][0].pop(field, None)
+    before = api.get(path + "result").content
+    metadata = api.get(f'/api/jobs/{job["id"]}').json()
+    response = api.get(path + "result?download=true")
+    exported = png(response)
+    assert exported.size == (41, 31) and exported.getpixel((0, 0))[3] == 1
+    assert exported.getpixel((1, 1)) == (40, 100, 200, 255)
+    assert response.headers["content-type"] == "image/png"
+    assert "001_récompense.png" in unquote(response.headers["content-disposition"])
+    assert response.headers["cache-control"] == "no-store"
+    with Image.open(io.BytesIO(response.content)) as image:
+        assert image.info.get("icc_profile") and "exif" not in image.info and "dpi" not in image.info
+    assert api.get(path + "result").content == before
+    assert api.get(f'/api/jobs/{job["id"]}').json() == metadata
+    assert png(api.get(path + "original?download=true")).size == (80, 60)
+    assert png(api.get(path + "automatic")).size == (80, 60)
+
+
+def test_default_download_uses_the_saved_touch_up_alpha(api):
+    job, item, path = create(api)
+    edited = api.put(path + "edits", json={"revision": 0, "strokes": [
+        {"mode": "wand", "spans": [[y, 0, 10] for y in range(40)]},
+    ]})
+    assert edited.status_code == 200
+    assert png(api.get(path + "result")).size == (50, 40)
+    exported = png(api.get(path + "result?download=true"))
+    assert exported.size == (40, 40) and exported.getpixel((0, 0)) == (0, 0, 255, 255)
+    assert api.get(f'/api/jobs/{job["id"]}').json()["items"][0]["revision"] == 1
+
+
+@pytest.mark.parametrize("settings,size", [
+    ({"crop": {"x": 10, "y": 5, "width": 60, "height": 50}, "resize": None}, (60, 50)),
+    ({"crop": None, "resize": {"width": 40, "height": 30}}, (40, 30)),
+    ({"crop": None, "resize": None}, (80, 60)),
+])
+def test_png_download_preserves_applied_geometry_after_reopening(api, monkeypatch, settings, size):
+    import server
+    job, item, path = create(api, transparent_subject())
+    assert api.put(path + "transform", json={"revision": 0, **settings}).status_code == 200
+    saved = json.loads((server.DATA / job["id"] / "manifest.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(server, "JOBS", {job["id"]: saved})
+    assert png(api.get(path + "result?download=true")).size == size
+    assert api.get(path + "result?download=true").content == api.get(path + "result").content
+
+
+@pytest.mark.parametrize("alpha", [0, 255])
+def test_default_download_keeps_valid_empty_and_occupied_canvases(api, alpha):
+    data = io.BytesIO()
+    Image.new("RGBA", (80, 60), (150, 80, 20, alpha)).save(data, "PNG")
+    job, item, path = create(api, data.getvalue())
+    assert png(api.get(path + "result?download=true")).size == (80, 60)
+    assert api.get(path + "result?download=true").content == api.get(path + "result").content
 
 
 def test_transform_export_zip_persistence_and_subsequent_touchups(api, monkeypatch):

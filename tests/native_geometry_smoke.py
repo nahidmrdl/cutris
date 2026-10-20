@@ -80,8 +80,10 @@ def main():
             input.dispatchEvent(new Event('change', {bubbles:true}));
         })()""" % (json.dumps(identifier), json.dumps(str(value))))
 
-    def read_image(kind="result"):
+    def read_image(kind="result", *, download=False):
         path = window.evaluate_js(f"imageURL(currentItem(), {json.dumps(kind)})")
+        if download:
+            path += "&download=true"
         with urllib.request.urlopen(service.url + path, timeout=10) as response:
             image = Image.open(io.BytesIO(response.read())).convert("RGBA")
             image.load()
@@ -110,6 +112,13 @@ def main():
             window.evaluate_js("$('quality').value='fast'; $('start').click()")
             wait("state.job?.status === 'complete' && Boolean(state.automatic)")
             check("original_preview_size", "canvas.width === 320 && canvas.height === 240")
+
+            stage = "default auto cropped PNG download"
+            exported = read_image(download=True)
+            record("default_download_auto_cropped", exported.size == (161, 141))
+            record("default_download_keeps_soft_alpha", exported.getpixel((0, 0))[3] == 1)
+            check("default_download_preserves_saved_canvas", "currentItem().revision === 0 && canvas.width === 320 && canvas.height === 240")
+            check("download_label_has_no_arrow", "$('download').textContent === 'Download PNG'")
 
             stage = "auto crop soft alpha"
             click("geometryButton")
@@ -157,6 +166,7 @@ def main():
             check("manual_crop_live_preview", "$('geometryOutputDimensions').textContent === '304 × 264 px' && $('geometryOutputPreview').width > 0 && $('geometryOutputPreview').height > 0")
             apply(2)
             record("manual_crop_export_size", read_image().size == (304, 264))
+            record("download_keeps_manual_output_size", read_image(download=True).size == (304, 264))
             check("resized_main_preview", "canvas.width === 304 && canvas.height === 264")
 
             stage = "reopen and cancel"
@@ -210,6 +220,7 @@ def main():
             record("full_canvas_export_restored", restored.size == (320, 240))
             record("full_canvas_keeps_touch_up", restored.getpixel((160, 120))[3] == 0)
             check("full_canvas_main_preview", "canvas.width === 320 && canvas.height === 240")
+            record("download_keeps_explicit_full_canvas", read_image(download=True).size == (320, 240))
 
             stage = "occupied and empty auto crop"
             window.evaluate_js("document.querySelectorAll('.queue-item')[1].click()")
@@ -227,6 +238,7 @@ def main():
             check("empty_canvas_retains_valid_dimensions", "Number($('geometryCropWidth').value) === 64 && Number($('geometryCropHeight').value) === 48 && $('geometryOutputPreview').width > 0 && $('geometryOutputPreview').height > 0")
             check("empty_canvas_explanation", "$('geometryStatus').textContent.includes('fully transparent')")
             click("geometryCancel")
+            record("empty_download_keeps_valid_dimensions", read_image(download=True).size == (64, 48))
             report["ok"] = all(report["checks"].values())
         except Exception as error:
             report["error"] = type(error).__name__

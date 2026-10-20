@@ -34,6 +34,8 @@ On desktop and laptop windows, the preview adapts to the available height so edi
 
 Open **Crop & resize** on a finished cutout. Save pending touch-ups first.
 
+**Download PNG** automatically trims empty transparent margins when you have not applied crop or resize settings. It uses the saved touch-ups and keeps even faint, partly transparent edges. To keep the full canvas, choose **Use full image**, turn off resizing, and **Apply changes**. Saved geometry takes precedence over the automatic download trim.
+
 - **Auto crop** is selected for a new crop and detects unused transparent margins immediately. It keeps soft, partly transparent edges. Opaque areas are kept even if their color matches the background.
 - Dragging the crop box, entering crop dimensions, or changing resizing switches to **Manual crop**. You can also select Manual crop to draw a new selection.
 - **Resize output** sets the final width and height. Leave **Keep proportions** checked to preserve the subject's shape.
@@ -55,8 +57,8 @@ Cropping and resizing affect the PNG and batch ZIP. The original stays intact, a
 | --- | --- |
 | Input | Single-frame PNG, JPG, WebP, BMP, TIFF |
 | Limits per image | 30 MB, 24 million pixels, 12,000 pixels per side |
-| Output | sRGB RGBA PNG at the original or chosen crop and resize dimensions |
-| Batch export | Ordered ZIP with completed images and a manifest of settings and failures |
+| PNG download | sRGB RGBA PNG, auto cropped by default or using your saved crop and resize settings |
+| Batch export | Ordered ZIP using saved image dimensions, with a manifest of settings and failures |
 
 Animated files and multi-page TIFFs are rejected. EXIF orientation is honored; ICC-tagged inputs are converted to sRGB when possible. Exports omit DPI and EXIF metadata. Set print size in your layout application.
 

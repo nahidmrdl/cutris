@@ -12,9 +12,10 @@ import uuid
 import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
@@ -123,6 +124,7 @@ def save_output(job, item, directory, result, *, strokes=None, transform=None):
         item["strokes"] = strokes
     if transform is not None:
         item["transform"] = transform
+        item["geometry_applied"] = True
     item["output_width"], item["output_height"] = result.size
     item["revision"] += 1
     persist(job)
@@ -161,6 +163,7 @@ def run_job(job_id):
             with LOCK:
                 item.update(status="done", notes=notes, error=None,
                             transform={"crop": None, "resize": None},
+                            geometry_applied=False,
                             output_width=result.width, output_height=result.height)
         except Exception as exc:
             with LOCK:
@@ -355,6 +358,19 @@ def image_file(job_id: str, item_id: str, kind: str, download: bool = False):
                     thumbnail(original.convert("RGBA"), path)
         if not path.is_file():
             raise HTTPException(404, "Image is not ready.")
+        settings = item.get("transform") or {}
+        if (download and kind == "result" and not item.get("geometry_applied")
+                and not settings.get("crop") and not settings.get("resize")):
+            # Trim the downloaded copy only; previews and source-coordinate edits
+            # keep their saved canvas. Explicit full-image choices are preserved.
+            with Image.open(path) as image:
+                bounds = image.getchannel("A").getbbox()
+                if bounds and bounds != (0, 0, *image.size):
+                    output = io.BytesIO()
+                    image.crop(bounds).save(output, format="PNG", compress_level=6)
+                    return Response(output.getvalue(), media_type="image/png", headers={
+                        "Content-Disposition": "attachment; filename*=utf-8''" + quote(item["output"], safe=""),
+                    })
         return FileResponse(path, media_type="image/png", filename=item["output"] if download else None)
 
 
