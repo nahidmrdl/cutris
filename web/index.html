@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>cutrix · Background Remover</title><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/editor.css"><script defer src="/editor.js"></script><script defer src="/app.js"></script><script defer src="/desktop.js"></script></head>
+<body>
+<header class="header"><a id="appBrandLink" class="brand" href="/" aria-label="cutrix home"><span class="brand-icon">✂</span><span><span id="appName">cutrix</span><small>LOCAL BACKGROUND REMOVER</small></span></a><span class="privacy"><span></span>On your computer. Only.</span><button id="modelsButton" class="quiet" hidden>AI models</button><button id="historyButton" class="quiet">Previous batches</button><button id="aboutButton" class="quiet">About</button></header>
+<main>
+<div id="notice" role="status" class="notice" hidden></div>
+<div class="workspace">
+<aside class="queue-panel panel">
+<div class="panel-heading"><div><span class="step">01</span><h2>Your image queue</h2></div><span id="queueCount" class="pill">0 / 50</span></div>
+<div id="setup">
+<label class="drop-zone" id="dropZone" tabindex="0"><input id="files" type="file" multiple accept="image/png,image/jpeg,image/webp,image/bmp,image/tiff" hidden><span class="upload-icon">＋</span><strong>Choose your images</strong><span>or drop them right here</span><small>1–50 images · JPG, PNG, WebP, BMP, TIFF<br>Up to 30 MB / 24 megapixels each</small></label>
+<div class="queue-tools"><button id="sort" class="small quiet">Sort by filename</button><button id="clear" class="small quiet">Clear queue</button></div>
+</div>
+<div id="queue" class="queue"><div class="empty-queue">Your next batch of images belongs here.</div></div>
+<div id="settings" class="settings"><label>AI quality<select id="quality"><option value="detail">Maximum detail · BiRefNet</option><option value="fast">Faster · BiRefNet Lite</option></select></label><label>Background treatment<select id="mode"><option value="ai">Any background · AI only</option><option value="white">White illustration · edge cleanup</option></select></label><p class="hint">Use Any background for photos and general images. White illustration adds edge cleanup for artwork on a white background.</p><button id="start" class="primary full" disabled>Remove backgrounds <span>↗</span></button></div>
+<div id="batchActions" hidden><div class="progress-track"><div id="progressBar"></div></div><p id="progressLabel" role="status"></p><p id="stage" class="hint"></p><div class="action-row"><button id="pause" class="secondary">Pause after this image</button><button id="retry" class="secondary" hidden>Retry failed images</button></div><button id="zip" class="primary full" disabled>Download ordered ZIP</button><button id="newBatch" class="quiet full">＋ Start another batch</button></div>
+<p class="panel-footnote">Your originals are never overwritten. Outputs keep their full pixel dimensions.</p>
+</aside>
+<section class="preview-panel panel">
+<div class="panel-heading"><div><span class="step coral">02</span><h2>Review your cutout</h2></div><span id="dimensions" class="pill">Full-resolution preview</span></div>
+<div class="preview-toolbar"><div class="segmented" aria-label="Image view"><button id="resultView" class="active" aria-pressed="true">Cutout</button><button id="originalView" aria-pressed="false">Original</button></div><div class="background-controls" aria-label="Preview background"><button class="swatch checker active" data-bg="checker" title="Transparency checkerboard" aria-label="Transparency checkerboard"></button><button class="swatch" style="background:#fff" data-bg="#ffffff" title="White background" aria-label="White background"></button><button class="swatch" style="background:#252638" data-bg="#252638" title="Dark background: inspect white fringes" aria-label="Dark background"></button><button class="swatch" style="background:#dbb3d5" data-bg="#dbb3d5" title="Lilac background" aria-label="Lilac background"></button><label class="color-picker" title="Custom preview background">✦<input id="backgroundColor" type="color" value="#f0c966" aria-label="Custom preview background"></label></div><div class="zoom-controls"><label class="wheel-option" title="When enabled, the wheel over the preview zooms instead of scrolling the page"><input id="wheelZoom" type="checkbox" checked>Wheel zoom</label><button id="zoomOut" class="small quiet" aria-label="Zoom out">−</button><button id="zoomIn" class="small quiet" aria-label="Zoom in">＋</button><button id="fit" class="small quiet">Fit</button><button id="actual" class="small quiet">100%</button><select id="zoom" aria-label="Preview zoom"><option value="fit">Fit</option><option value=".25">25%</option><option value=".5">50%</option><option value="1">100%</option><option value="2">200%</option><option value="4">400%</option></select></div></div>
+<div id="viewport" class="viewport checker"><div id="previewEmpty" class="preview-empty"><span class="empty-art">✦</span><h3>Your subject.<br>A clean background.</h3><p>Your cutout will appear here.<br>Check it on light and dark backgrounds before exporting.</p></div><div id="canvasWrap" hidden><canvas id="canvas"></canvas><canvas id="selectionOverlay" hidden aria-hidden="true"></canvas><div id="brushCursor" hidden></div></div></div>
+<p class="navigation-hint">Right-click + drag moves the image in every tool. Left-click edits; scroll zooms. Space + drag also moves the image. Turn off Wheel zoom to scroll the page over the preview.</p>
+<div id="imageInfo" class="image-info"><strong id="imageName">A clean little workspace</strong><span id="imageStatus">Nothing is uploaded to a cloud service.</span></div>
+<div class="touchup">
+<div class="touchup-heading"><div><h3>A little touch-up?</h3><p>Erase leftovers or restore missing details. Brushes and selections use original-image pixels.</p></div><span class="pill">Optional</span></div>
+<div class="touchup-tools">
+<div class="segmented" aria-label="Editing tool">
+<button id="eraseTool" title="Paint to remove pixels">Erase</button>
+<button id="restoreTool" title="Paint to bring back original pixels">Restore</button>
+<button id="wandTool" title="Select a connected area of similar color, then erase it">Magic wand</button>
+</div>
+<label class="brush-size">Brush <input id="brushSize" type="range" min="1" max="500" value="30" aria-label="Brush size slider"><input id="brushNumber" type="number" min="1" max="500" step="1" value="30" aria-label="Brush size in pixels"><span>px</span></label>
+<button id="doneEditing" class="quiet" hidden title="Finish this tool and return to ordinary dragging">Done editing</button>
+<button id="undo" class="quiet" title="Undo edit (Ctrl+Z)" disabled>↶ Undo</button><button id="redo" class="quiet" title="Redo edit (Ctrl+Shift+Z)" disabled>↷ Redo</button>
+</div>
+<div id="wandPanel" class="wand-panel" hidden>
+<div class="wand-controls"><label>Tolerance <input id="tolerance" type="range" min="0" max="100" value="24" aria-label="Wand tolerance slider"><input id="toleranceNumber" type="number" min="0" max="100" step="1" value="24" aria-label="Wand tolerance"></label><button id="eraseSelection" class="secondary" disabled>Erase selected area</button><button id="clearSelection" class="quiet" disabled>Clear selection</button></div>
+<p id="selectionStatus" role="status">Click a leftover patch to preview a connected-color selection.</p>
+<p class="hint">Higher tolerance includes more colors. Pink is the selection, not a change to your image. Check the glasses frame before applying. Esc clears the selection.</p>
+</div>
+<div class="edit-actions"><button id="reset" class="secondary" title="Remove all touch-ups and restore the processed cutout, without bringing back the background" disabled>↶ Undo all touch-ups</button><span id="dirtyLabel" role="status">Select a finished image to touch up.</span><button id="save" class="secondary" disabled>Save touch-up</button><button id="download" class="primary" disabled>Download PNG ↓</button></div>
+</div>
+<div id="notes" class="notes"><strong>Good to know</strong><p>No automatic remover gets every image perfect. White-on-white details, glass, fine fur, and soft shadows may need a quick touch-up. Always inspect your final cutout.</p></div>
+</section></div>
+<footer><span><span id="footerAppName">cutrix</span> · Local image editing</span><span>Local AI · BiRefNet · No subscription · No image uploads</span></footer>
+</main>
+<dialog id="confirmDialog"><h2 id="confirmTitle">Unsaved touch-up</h2><p id="confirmText"></p><div class="action-row"><button id="confirmNo" class="secondary">Keep editing</button><button id="confirmYes" class="primary">Discard changes</button></div></dialog>
+<dialog id="historyDialog"><div class="panel-heading"><h2>Previous batches</h2><button id="closeHistory" class="quiet">Close ✕</button></div><p class="hint">Saved on this computer. Interrupted batches can be resumed.</p><div id="historyList"></div></dialog>
+<dialog id="aboutDialog"><div class="panel-heading"><h2><span id="aboutAppName">cutrix</span> <span id="appVersion"></span></h2><button id="closeAbout" class="quiet">Close ✕</button></div><p>Private, local background removal with BiRefNet. Images and edits stay on your computer. Model downloads are the only internet connection the app needs.</p><button id="savedWorkButton" class="secondary" hidden>Open saved work folder</button><details><summary>Open source licenses and credits</summary><pre id="licenseNotices" class="license-notices"></pre></details></dialog>
+</body></html>
