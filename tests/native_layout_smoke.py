@@ -93,7 +93,7 @@ def main():
             window.evaluate_js("$('start').click()")
             wait("state.job?.status==='complete' && Boolean(state.automatic)")
             stage = 'editing layout matrix'
-            for width, height in [(1920,1080),(1440,900),(1366,768),(1280,720),(1100,700),(1024,680),(900,660)]:
+            for width, height in [(1920,1080),(1440,900),(1366,768),(1280,720),(1100,700),(1024,680),(900,660),(1232,656)]:
                 key = resize(width, height)
                 check(key+'_no_page_scroll', 'document.documentElement.scrollWidth<=innerWidth && document.documentElement.scrollHeight<=innerHeight+1')
                 check(key+'_editing_actions_visible', visible(['eraseTool','restoreTool','wandTool','geometryButton','save','download']))

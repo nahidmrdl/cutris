@@ -29,7 +29,7 @@ For a second run, use another empty test home so the history check remains isola
 
 `tests/native_geometry_smoke.py` checks Auto crop, manual crop, resizing, preview and export dimensions, cancel/reset behavior, and continued touch-ups in the actual renderer. It uses generated transparent artwork and a separate disposable `CUTOUT_HOME`.
 
-`tests/native_layout_smoke.py` checks editing, wand and export controls without page scrolling across seven desktop window sizes from 900 × 660 to 1920 × 1080, plus two narrow layouts. It also verifies visible crop dialog actions, Auto crop on opening, automatic transitions to Manual mode, and accessible icon close buttons. Window dimensions include the native frame; the report records the actual content viewport.
+`tests/native_layout_smoke.py` checks editing, wand and export controls without page scrolling across eight desktop window sizes, including 900 × 660, 1920 × 1080, and the initial 1232 × 656 window for a 1280 × 720 display, plus two narrow layouts. It also verifies visible crop dialog actions, Auto crop on opening, automatic transitions to Manual mode, and accessible icon close buttons. Window dimensions include the native frame; the report records the actual content viewport.
 
 ```powershell
 $env:CUTOUT_HOME = Join-Path $PWD 'build\native-layout-home'

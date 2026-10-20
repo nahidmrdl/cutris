@@ -255,7 +255,7 @@ def main(argv: list[str] | None = None) -> int:
                       screens[0] if screens else None)
         # Leave room for the taskbar and window frame on scaled laptop displays.
         width = min(1360, max(640, screen.width - 48)) if screen else 1360
-        height = min(820, max(480, screen.height - 96)) if screen else 820
+        height = min(820, max(480, screen.height - 64)) if screen else 820
         window = webview.create_window(APP_NAME, service.url, js_api=api,
                                        width=width, height=height, min_size=(min(900, width), min(620, height)),
                                        background_color="#f6f5ef", text_select=True,
