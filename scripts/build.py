@@ -16,7 +16,7 @@ import sys
 import zipfile
 
 from collect_licenses import collect
-from make_icon import make_icon
+from make_icon import make_assets
 from privacy_audit import audit
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -96,7 +96,7 @@ def build_binary(installer, compiler):
     if sys.platform != 'win32' or sys.maxsize <= 2**32:
         raise RuntimeError('Build this Windows x64 release with 64-bit Python on Windows.')
     collect(ROOT / 'build' / 'release-input' / 'licenses')
-    make_icon(ROOT / 'packaging' / 'assets' / 'app.ico')
+    make_assets(ROOT)
     from make_version_info import make_version_info
     make_version_info(ROOT / 'branding.json', ROOT / 'packaging' / 'windows-version.txt')
     print('Freezing the Windows application (details in build/pyinstaller-build.log)...', flush=True)

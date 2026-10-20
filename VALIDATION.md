@@ -16,7 +16,7 @@ Tests need working Windows loopback sockets. A restricted test runner that block
 
 ## Native renderer check
 
-`tests/native_smoke.py` exercises the actual WebView2 renderer with a generated fixture: local native bridge, general-background default, desktop layout, real AI processing, saved touch-up, exported alpha, ordered ZIP, About/licenses, and saved-batch history.
+`tests/native_smoke.py` exercises the actual WebView2 renderer with a generated fixture: local native bridge, custom icon and favicon, general-background default, desktop layout, real AI processing, saved touch-up, exported alpha, ordered ZIP, About/licenses, and saved-batch history.
 
 Use disposable storage and an explicit local report path:
 
@@ -31,7 +31,7 @@ For a second run, use another empty test home so the history check remains isola
 
 ## Packaged runtime
 
-The release build runs the frozen executable's self-test for static assets, the local server, image decoding, numerical/native runtime availability, edits, crop/resize, and PNG/ZIP handling. `--check-inference` adds real AI processing when a model is installed. The runtime report does not contain workstation paths or private image names.
+The release build runs the frozen executable's self-test for static assets, the shipped Windows and interface icons, the local server, image decoding, numerical/native runtime availability, edits, crop/resize, and PNG/ZIP handling. `--check-inference` adds real AI processing when a model is installed. The runtime report does not contain workstation paths or private image names.
 
 ```powershell
 .\dist\cutrix\cutrix.exe --self-test --check-inference --report build\frozen-inference.json

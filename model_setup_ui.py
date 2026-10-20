@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import queue
+import sys
 import threading
 import tkinter as tk
-from app_paths import APP_NAME
+from app_paths import APP_NAME, RESOURCE_DIR
 from tkinter import ttk
 from typing import Iterable
 
@@ -29,6 +30,13 @@ def run_model_setup(qualities: Iterable[str] | None = None, *,
         raise ValueError("Choose the Fast or Best detail AI model.")
     window = tk.Tk() if parent is None else tk.Toplevel(parent)
     window.title(f"{APP_NAME} — AI model setup")
+    icon = RESOURCE_DIR / "packaging" / "assets" / "app.ico"
+    if sys.platform == "win32" and icon.is_file():
+        try:
+            window.iconbitmap(default=str(icon))
+        except tk.TclError:
+            # A missing Windows icon handler must not block model setup.
+            pass
     window.geometry("570x470")
     window.minsize(530, 440)
     if parent is not None:

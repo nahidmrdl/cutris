@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/hero.svg" alt="cutrix — local AI background removal" width="100%">
+  <img src="docs/assets/hero.png" alt="cutrix — local AI background removal" width="100%">
 </p>
 
 <p align="center">

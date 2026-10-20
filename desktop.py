@@ -156,6 +156,11 @@ def self_test(report_path: Path | None, check_inference: bool = False) -> int:
             report["checks"]["workspace"] = b'id="canvas"' in response.read()
         report["checks"]["models"] = model_status()
         report["checks"]["onnx_runtime"] = "CPUExecutionProvider" in ort.get_available_providers()
+        with Image.open(RESOURCE_DIR / "packaging" / "assets" / "app.ico") as icon:
+            report["checks"]["app_icon"] = {(16, 16), (24, 24), (32, 32), (48, 48), (256, 256)} <= icon.ico.sizes()
+        with urllib.request.urlopen(service.url + "/assets/app.png", timeout=10) as response:
+            with Image.open(io.BytesIO(response.read())) as icon:
+                report["checks"]["interface_icon"] = icon.size == (256, 256) and icon.mode == "RGBA"
         fixture = Image.new("RGB", (256, 256), "white")
         draw = ImageDraw.Draw(fixture)
         draw.ellipse((60, 24, 196, 160), fill="#5355b8")

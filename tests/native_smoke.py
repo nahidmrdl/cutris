@@ -59,6 +59,8 @@ def main():
         try:
             wait("Boolean(state.token && window.pywebview?.api?.document_state)")
             check("desktop_bridge", "!$('modelsButton').hidden && !$('savedWorkButton').hidden")
+            wait("Boolean(document.querySelector('.brand-icon')?.complete)")
+            check("custom_app_icon", "(() => { const icon = document.querySelector('.brand-icon'); return icon.naturalWidth === 256 && icon.naturalHeight === 256 && getComputedStyle(icon).transform === 'none' && Boolean(document.querySelector('link[rel=icon][href=\"/assets/favicon.ico\"]')); })()")
             check("general_background_default", "$('mode').value === 'ai'")
             check("desktop_layout", "document.documentElement.scrollWidth <= innerWidth")
             stage = "batch processing"
