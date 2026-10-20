@@ -250,8 +250,14 @@ def main(argv: list[str] | None = None) -> int:
         webview.settings["ALLOW_FILE_URLS"] = False
         webview.settings["OPEN_EXTERNAL_LINKS_IN_BROWSER"] = True
         api = DesktopApi()
+        screens = webview.screens
+        screen = next((screen for screen in screens if screen.x == 0 and screen.y == 0),
+                      screens[0] if screens else None)
+        # Leave room for the taskbar and window frame on scaled laptop displays.
+        width = min(1360, max(640, screen.width - 48)) if screen else 1360
+        height = min(820, max(480, screen.height - 96)) if screen else 820
         window = webview.create_window(APP_NAME, service.url, js_api=api,
-                                       width=1440, height=960, min_size=(1000, 700),
+                                       width=width, height=height, min_size=(min(900, width), min(620, height)),
                                        background_color="#f6f5ef", text_select=True,
                                        localization={"global.quitConfirmation": f"Close {APP_NAME}? Unsaved touch-ups will be discarded. Processing stops after the current image. Saved work stays on this computer."})
         api._window = window

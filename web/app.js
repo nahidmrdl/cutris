@@ -103,7 +103,7 @@ async function selectFile(id, force = false) {
   $('previewEmpty').hidden = true; $('canvasWrap').hidden = false;
   $('dimensions').textContent = `${canvas.width} × ${canvas.height} px`;
   $('imageStatus').textContent = automatic ? 'Transparent PNG · original dimensions' : item.error || (state.job ? 'Original · cutout not ready yet' : 'Original · ready for the queue');
-  $('notes').innerHTML = '<strong>Review notes</strong>' + (item.notes?.length ? item.notes : ['Inspect the edges at 100%, especially pale details. White-on-white features may need a touch-up.']).map(note => `<p>${escapeText(note)}</p>`).join('');
+  $('notes').innerHTML = (item.notes?.length ? item.notes : ['Inspect the edges at 100%, especially pale details. White-on-white features may need a touch-up.']).map(note => `<p>${escapeText(note)}</p>`).join('');
   resizeCanvas(); renderCanvas(); updateTools();
 }
 function resizeCanvas() {

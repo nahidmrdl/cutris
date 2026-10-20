@@ -22,22 +22,24 @@ Preview backgrounds help you inspect edges; they are not included in transparent
 | **Magic wand** | Preview a connected area of similar color, adjust tolerance, then choose **Erase selected area**. |
 | **Undo / Redo** | Step through edits. `Ctrl+Z` undoes; `Ctrl+Shift+Z` redoes. |
 | **Save touch-up** | Save the current edits before leaving or exporting the image. |
-| **Undo all touch-ups** | Return to the automatic cutout after confirmation, without rerunning the model. |
+| **Reset touch-ups** | Return to the automatic cutout after confirmation, without rerunning the model. |
 
 Magic wand selections appear pink until applied. Transparent pixels act as barriers, but connected subject details of similar color can also be selected. Inspect before erasing. `Esc` or **Clear selection** cancels the preview.
 
 Brush size is **1–500 original-image pixels**, regardless of zoom. Pending edits remain in the current window until saved. Undo and redo history remains available while that image stays open.
 
+On desktop and laptop windows, the preview adapts to the available height so editing and export controls stay visible. The image queue scrolls separately. Expand **Review notes** for edge checks and processing details. Narrow windows use a single-column layout.
+
 ## Crop and resize
 
 Open **Crop & resize** on a finished cutout. Save pending touch-ups first.
 
-- **Auto crop** detects the visible subject and removes unused transparent margins. It keeps soft, partly transparent edges. Opaque areas are kept even if their color matches the background.
-- **Manual crop** lets you select the area to keep or enter its position and dimensions in pixels.
+- **Auto crop** is selected for a new crop and detects unused transparent margins immediately. It keeps soft, partly transparent edges. Opaque areas are kept even if their color matches the background.
+- Dragging the crop box, entering crop dimensions, or changing resizing switches to **Manual crop**. You can also select Manual crop to draw a new selection.
 - **Resize output** sets the final width and height. Leave **Keep proportions** checked to preserve the subject's shape.
 - Review the preview, then **Apply changes** to save. **Cancel** leaves the saved image unchanged.
 
-Cropping and resizing affect the PNG and batch ZIP. The original stays intact, and later touch-ups use the full source image. Reopen **Crop & resize** to adjust the saved canvas. **Use full image** removes the crop; **Reset size** removes resizing. Auto crop uses the current cutout; run it again after touch-ups if you want new bounds.
+Cropping and resizing affect the PNG and batch ZIP. The original stays intact, and later touch-ups use the full source image. Reopen **Crop & resize** to adjust the saved canvas; custom crops and resizing reopen in Manual mode with their saved values. **Use full image** removes the crop; **Reset size** removes resizing. Auto crop uses the current cutout; run it again after touch-ups if you want new bounds.
 
 ## Move around the image
 

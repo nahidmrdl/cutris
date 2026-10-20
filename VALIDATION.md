@@ -29,6 +29,13 @@ For a second run, use another empty test home so the history check remains isola
 
 `tests/native_geometry_smoke.py` checks Auto crop, manual crop, resizing, preview and export dimensions, cancel/reset behavior, and continued touch-ups in the actual renderer. It uses generated transparent artwork and a separate disposable `CUTOUT_HOME`.
 
+`tests/native_layout_smoke.py` checks editing, wand and export controls without page scrolling across seven desktop window sizes from 900 × 660 to 1920 × 1080, plus two narrow layouts. It also verifies visible crop dialog actions, Auto crop on opening, automatic transitions to Manual mode, and accessible icon close buttons. Window dimensions include the native frame; the report records the actual content viewport.
+
+```powershell
+$env:CUTOUT_HOME = Join-Path $PWD 'build\native-layout-home'
+.\.venv\Scripts\python.exe tests\native_layout_smoke.py build\native-layout.json
+```
+
 ## Packaged runtime
 
 The release build runs the frozen executable's self-test for static assets, the shipped Windows and interface icons, the local server, image decoding, numerical/native runtime availability, edits, crop/resize, and PNG/ZIP handling. `--check-inference` adds real AI processing when a model is installed. The runtime report does not contain workstation paths or private image names.

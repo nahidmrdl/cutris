@@ -1,6 +1,6 @@
 'use strict';
 
-const geometryState = {source:null, crop:null, scale:1, drag:null, busy:false, mode:'manual', newCrop:false, initialized:false};
+const geometryState = {source:null, crop:null, autoBounds:undefined, scale:1, drag:null, busy:false, mode:'auto', newCrop:false, initialized:false};
 const geometryCropFields = ['geometryCropX','geometryCropY','geometryCropWidth','geometryCropHeight'];
 
 function geometryInteger(id) {
@@ -108,9 +108,9 @@ function geometryCropChanged(crop, message) {
   geometryRefresh();
 }
 
-function geometryAutoCrop() {
+function geometryDetectCrop() {
+  if (geometryState.autoBounds !== undefined) return geometryState.autoBounds;
   const source = geometryState.source;
-  if (!source || geometryState.busy) return;
   const pixels = source.getContext('2d').getImageData(0,0,source.width,source.height).data;
   let left = source.width, top = source.height, right = -1, bottom = -1;
   // Alpha 1 still belongs to the image: retain soft edges and faint shadows.
@@ -118,13 +118,21 @@ function geometryAutoCrop() {
     if (pixels[(y*source.width+x)*4+3] === 0) continue;
     left=Math.min(left,x); top=Math.min(top,y); right=Math.max(right,x); bottom=Math.max(bottom,y);
   }
-  if (right < left) {
-    $('geometryStatus').textContent = 'This image is fully transparent. There is no visible area to crop.';
-    return;
-  }
+  geometryState.autoBounds = right < left ? null : {x:left,y:top,width:right-left+1,height:bottom-top+1};
+  return geometryState.autoBounds;
+}
+
+function geometryAutoCrop() {
+  const source = geometryState.source;
+  if (!source || geometryState.busy) return;
   geometrySetMode('auto');
   geometrySetNewCrop(false);
-  const crop = {x:left,y:top,width:right-left+1,height:bottom-top+1};
+  const crop = geometryDetectCrop();
+  if (!crop) {
+    $('geometryStatus').textContent = 'This image is fully transparent. There is no visible area to crop.';
+    geometryRefresh();
+    return;
+  }
   geometryCropChanged(crop,crop.width === source.width && crop.height === source.height ? 'No empty transparent edges found. The full image is selected.' : 'Empty transparent edges detected. Soft edges and faint shadows are kept.');
 }
 
@@ -189,17 +197,21 @@ function openGeometry() {
   geometryState.crop = transform.crop ? {...transform.crop} : {x:0,y:0,width:source.width,height:source.height};
   geometryState.drag = null; geometryState.busy = false;
   const preview = $('geometrySource'); preview.width=source.width; preview.height=source.height; preview.getContext('2d').drawImage(source,0,0);
-  geometryState.source = preview;
-  geometrySyncCropFields(); geometrySetMode('manual');
-  geometrySetNewCrop(!transform.crop);
+  geometryState.source = preview; geometryState.autoBounds = undefined;
+  geometrySyncCropFields();
+  const detected = geometryDetectCrop();
+  const matchesAuto = transform.crop && detected && ['x','y','width','height'].every(key => transform.crop[key] === detected[key]);
+  const auto = !transform.resize && (!transform.crop || matchesAuto);
+  geometrySetMode(auto ? 'auto' : 'manual'); geometrySetNewCrop(false);
   $('geometryResizeEnabled').checked = !!transform.resize;
   $('geometryResizeWidth').value = transform.resize?.width || geometryState.crop.width;
   $('geometryResizeHeight').value = transform.resize?.height || geometryState.crop.height;
   $('geometryAspectLock').checked = !transform.resize || Math.abs(transform.resize.width/transform.resize.height-geometryState.crop.width/geometryState.crop.height)<.001;
   $('geometryCropX').max=source.width-1; $('geometryCropY').max=source.height-1;
   $('geometryCropWidth').max=source.width; $('geometryCropHeight').max=source.height;
-  $('geometryStatus').textContent = 'Drag a crop box, or let Auto crop detect empty transparent edges.';
-  $('geometryDialog').showModal(); geometryRefresh();
+  $('geometryStatus').textContent = 'Your saved crop is ready. Drag the box or adjust its dimensions to change it.';
+  $('geometryDialog').showModal();
+  if (auto) geometryAutoCrop(); else geometryRefresh();
   requestAnimationFrame(geometryLayout);
 }
 
@@ -229,14 +241,16 @@ function initializeGeometry() {
   $('geometryManualCrop').onclick=() => { geometrySetMode('manual'); geometrySetNewCrop(true); $('geometryStatus').textContent='Drag to draw a new crop box. Then move the box or adjust its edges and corners.'; $('geometryStage').focus(); };
   $('geometryFullImage').onclick=() => { geometrySetMode('manual'); geometrySetNewCrop(true); const s=geometryState.source; geometryCropChanged({x:0,y:0,width:s.width,height:s.height},'The full image is selected.'); };
   for (const id of geometryCropFields) $(id).oninput=() => {
-    try { geometryState.crop=geometryCropFromFields(); geometrySetMode('manual'); geometrySyncResize('width'); geometryRefresh(); }
+    geometrySetMode('manual'); geometrySetNewCrop(false);
+    try { geometryState.crop=geometryCropFromFields(); geometrySyncResize('width'); geometryRefresh(); }
     catch (error) { geometryError(error.message); $('geometryApply').disabled=true; }
   };
-  $('geometryResizeEnabled').onchange=() => { geometrySyncResize(); geometryRefresh(); };
-  $('geometryResizeWidth').oninput=() => { geometrySyncResize('width'); geometryRefresh(); };
-  $('geometryResizeHeight').oninput=() => { geometrySyncResize('height'); geometryRefresh(); };
-  $('geometryAspectLock').onchange=() => { geometrySyncResize('width'); geometryRefresh(); };
-  $('geometryResetSize').onclick=() => { $('geometryResizeEnabled').checked=false; $('geometryAspectLock').checked=true; geometrySyncResize(); geometryRefresh(); };
+  const manualResize = changed => { geometrySetMode('manual'); geometrySetNewCrop(false); geometrySyncResize(changed); geometryRefresh(); };
+  $('geometryResizeEnabled').onchange=() => manualResize();
+  $('geometryResizeWidth').oninput=() => manualResize('width');
+  $('geometryResizeHeight').oninput=() => manualResize('height');
+  $('geometryAspectLock').onchange=() => manualResize('width');
+  $('geometryResetSize').onclick=() => { $('geometryResizeEnabled').checked=false; $('geometryAspectLock').checked=true; manualResize(); };
   $('geometryApply').onclick=geometryApply;
   const close=() => { if (!geometryState.busy) $('geometryDialog').close(); };
   $('geometryCancel').onclick=close; $('geometryClose').onclick=close;
