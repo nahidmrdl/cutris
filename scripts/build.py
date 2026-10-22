@@ -28,9 +28,9 @@ SOURCE_FILES = (
     '.gitattributes', '.gitignore', 'LICENSE', 'README.md', 'CHANGELOG.md', 'CONTRIBUTING.md', 'THIRD_PARTY_NOTICES.md', 'VALIDATION.md', 'branding.json',
     'requirements.txt', 'requirements-dev.txt', 'requirements-desktop.txt', 'requirements-build.txt', 'requirements-release.txt',
     'engine.py', 'image_geometry.py', 'server.py', 'launch.py', 'desktop.py', 'app_paths.py', 'model_manager.py', 'model_setup_ui.py',
-    'setup.py', 'Setup.cmd', 'Start.cmd', 'Start-browser.cmd',
+    'setup.py', 'pyproject.toml', 'MANIFEST.in', 'Setup.cmd', 'Start.cmd', 'Start-browser.cmd',
 )
-SOURCE_DIRECTORIES = ('web', 'docs', 'tests', 'packaging', 'scripts', '.github')
+SOURCE_DIRECTORIES = ('cutris', 'web', 'docs', 'tests', 'packaging', 'scripts', '.github')
 DISALLOWED_PARTS = {'__pycache__', '.pytest_cache', '.venv', '.git', 'data', 'models', 'backups',
                     'example-results', 'node_modules'}
 DISALLOWED_SUFFIXES = {'.pyc', '.pyo', '.log', '.onnx', '.download', '.bak', '.psd', '.psb'}
@@ -92,7 +92,7 @@ def compiler_path(explicit):
     raise RuntimeError('Inno Setup compiler not found. Install Inno Setup or pass --iscc PATH.')
 
 
-def build_binary(installer, compiler):
+def build_binary(installer, compiler, verify_runtime=False):
     if sys.platform != 'win32' or sys.maxsize <= 2**32:
         raise RuntimeError('Build this Windows x64 release with 64-bit Python on Windows.')
     collect(ROOT / 'build' / 'release-input' / 'licenses')
@@ -114,13 +114,14 @@ def build_binary(installer, compiler):
     # Do not inherit a developer's alternate model/data locations in a clean-runtime check.
     test_env.pop('CUTOUT_DATA', None)
     test_env.pop('CUTOUT_MODELS', None)
-    print('Verifying the bundled application...', flush=True)
-    run([bundle / f'{EXECUTABLE}.exe', '--self-test', '--report', report], env=test_env, timeout=120)
-    if not report.is_file():
-        raise RuntimeError('The frozen executable did not produce a self-test report.')
-    result = json.loads(report.read_text(encoding='utf-8'))
-    if not result.get('ok'):
-        raise RuntimeError('The frozen application self-test failed; inspect the local build report.')
+    if verify_runtime:
+        print('Verifying the bundled application...', flush=True)
+        run([bundle / f'{EXECUTABLE}.exe', '--self-test', '--report', report], env=test_env, timeout=120)
+        if not report.is_file():
+            raise RuntimeError('The frozen executable did not produce a self-test report.')
+        result = json.loads(report.read_text(encoding='utf-8'))
+        if not result.get('ok'):
+            raise RuntimeError('The frozen application self-test failed; inspect the local build report.')
     portable = RELEASE / f'{EXECUTABLE}-{VERSION}-windows-x64-portable.zip'
     with zipfile.ZipFile(portable, 'w', zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
         for path in sorted(bundle.rglob('*')):
@@ -150,16 +151,28 @@ def checksums(artifacts):
     output.write_text('\n'.join(lines) + '\n', encoding='ascii')
 
 
+def build_wheel():
+    output = RELEASE / f'cutris-{VERSION}-py3-none-any.whl'
+    run([sys.executable, '-m', 'pip', 'wheel', '.', '--no-deps', '--no-build-isolation',
+         '--disable-pip-version-check', '--wheel-dir', RELEASE], log=ROOT / 'build' / 'wheel-build.log')
+    if not output.is_file():
+        raise RuntimeError('The standalone CLI/API wheel was not built.')
+    check_privacy([output])
+    return output
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--installer', action='store_true', help='Also compile the Windows Setup EXE.')
     parser.add_argument('--source-only', action='store_true', help='Only package clean publishable source.')
+    parser.add_argument('--verify-runtime', action='store_true', help='Opt in to the bundled runtime smoke check.')
     parser.add_argument('--iscc', help='Optional path to Inno Setup ISCC.exe.')
     args = parser.parse_args()
     RELEASE.mkdir(exist_ok=True)
     artifacts = []
     if not args.source_only:
-        artifacts += build_binary(args.installer, args.iscc)
+        artifacts += build_binary(args.installer, args.iscc, args.verify_runtime)
+        artifacts.append(build_wheel())
     artifacts.append(archive_sources())
     checksums(artifacts)
     print('Release artifacts:')

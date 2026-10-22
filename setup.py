@@ -1,23 +1,23 @@
-"""Set up a source checkout; end users should use the Windows installer."""
+"""Build the distribution without importing inference or desktop libraries."""
+import json
 from pathlib import Path
-import subprocess
-import sys
-import venv
+import shutil
+from setuptools import setup
+from setuptools.command.build_py import build_py
 
 ROOT = Path(__file__).resolve().parent
 
 
-def main():
-    if not (3, 11) <= sys.version_info[:2] <= (3, 13):
-        raise SystemExit("Source setup needs Python 3.11, 3.12, or 3.13. The Windows installer includes Python.")
-    environment = ROOT / ".venv"
-    executable = environment / "Scripts" / "python.exe"
-    if not executable.exists():
-        venv.create(environment, with_pip=True)
-    subprocess.run([str(executable), "-m", "pip", "install", "-r", str(ROOT / "requirements-desktop.txt")], check=True)
-    subprocess.run([str(executable), str(ROOT / "desktop.py"), "--setup-models"], check=True)
-    print("Ready. Double-click Start.cmd to open cutris.")
+class BuildResources(build_py):
+    def run(self):
+        super().run()
+        resources = Path(self.build_lib) / "cutris" / "resources"
+        resources.mkdir(parents=True, exist_ok=True)
+        for name in ("branding.json", "LICENSE", "THIRD_PARTY_NOTICES.md"):
+            shutil.copyfile(ROOT / name, resources / name)
+        for name in ("web", "packaging/assets"):
+            shutil.copytree(ROOT / name, resources / name, dirs_exist_ok=True)
 
 
-if __name__ == "__main__":
-    main()
+setup(version=json.loads((ROOT / "branding.json").read_text(encoding="utf-8"))["version"],
+      cmdclass={"build_py": BuildResources})

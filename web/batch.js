@@ -4,7 +4,7 @@ const batchState = {selected:new Set(), busy:false, timer:null, controller:null,
 
 function updateBatchTools() {
   $('batchTools').disabled = state.busy || state.dirty || !state.job
-    || !['paused','complete'].includes(state.job.status) || !state.job.items.some(item => item.status === 'done');
+    || !['paused','complete','stopped'].includes(state.job.status) || !state.job.items.some(item => item.status === 'done');
 }
 
 function batchTargets() {
@@ -54,7 +54,7 @@ async function batchPreview() {
     context.clearRect(0,0,preview.width,preview.height);
     const scale=Math.min((preview.width-16)/image.naturalWidth,(preview.height-16)/image.naturalHeight);
     context.drawImage(image,(preview.width-image.naturalWidth*scale)/2,(preview.height-image.naturalHeight*scale)/2,image.naturalWidth*scale,image.naturalHeight*scale);
-    $('batchPreviewSize').textContent=`${batchTargets()[0].name} · ${response.headers.get('X-Output-Width')} × ${response.headers.get('X-Output-Height')} px`;
+    $('batchPreviewSize').textContent=`${batchTargets()[0].name} (${response.headers.get('X-Output-Width')} × ${response.headers.get('X-Output-Height')} px)`;
   } catch (error) {
     if (generation===batchState.generation && error.name!=='AbortError') { $('batchPreviewSize').textContent='Preview unavailable'; batchError(error.message); }
   } finally { if (url) URL.revokeObjectURL(url); }

@@ -25,6 +25,7 @@ from engine import ROOT, MODELS, Remover, apply_strokes, load_image, save_png
 from image_geometry import apply_transform, normalize_transform, output_size
 from app_paths import APP_ID, APP_NAME, VERSION, DATA_DIR, public_error
 from model_manager import model_status
+from cutris.settings import SettingsStore, validate_settings
 
 DATA = DATA_DIR / "jobs"
 DATA.mkdir(parents=True, exist_ok=True)
@@ -32,6 +33,10 @@ TOKEN = secrets.token_urlsafe(32)
 LOCK = threading.RLock()
 POOL = ThreadPoolExecutor(max_workers=1, thread_name_prefix="cutout")
 REMOVER = Remover()
+PROCESSING_LOCK = threading.Lock()
+SETTINGS = SettingsStore()
+INTEGRATION_CONTROLLER = None
+EDITOR_REQUESTS = []
 JOBS: dict[str, dict] = {}
 DESKTOP_MODE = False
 app = FastAPI(docs_url=None, redoc_url=None)
@@ -58,7 +63,15 @@ for path in DATA.glob("*/manifest.json"):
         job = json.loads(path.read_text(encoding="utf-8"))
         if not re.fullmatch(r"[a-f0-9]{32}", job["id"]):
             continue
-        if job["status"] in {"running", "queued", "pausing"}:
+        if job["status"] == "stopping":
+            job["status"] = "stopped"
+            job["current"] = None
+            job["stage"] = "Queue stopped. Finished images are saved."
+            for item in job["items"]:
+                if item["status"] in {"running", "waiting"}:
+                    item["status"] = "cancelled"
+            persist(job)
+        elif job["status"] in {"running", "queued", "pausing"}:
             job["status"] = "paused"
             job["stage"] = "Interrupted by a restart. Resume to continue."
             for item in job["items"]:
@@ -136,7 +149,7 @@ def alpha_crop(image):
 def prepare_download(item, path):
     """Share export geometry between single PNGs and ZIPs without changing saved work."""
     settings = item.get("transform") or {}
-    automatic = not item.get("geometry_applied") and not any(settings.get(key) for key in ("crop", "resize", "canvas"))
+    automatic = SETTINGS.get()["auto_crop"] and not item.get("geometry_applied") and not any(settings.get(key) for key in ("crop", "resize", "canvas"))
     with Image.open(path) as image:
         crop = alpha_crop(image) if automatic else None
         size = image.size
@@ -170,6 +183,10 @@ def run_job(job_id):
         persist(job)
     for item in job["items"]:
         with LOCK:
+            if job["status"] in {"stopping", "stopped"}:
+                job.update(status="stopped", current=None, stage="Queue stopped. Finished images are saved.")
+                persist(job)
+                return
             if job["status"] == "pausing":
                 job["status"] = "paused"
                 job["stage"] = "Paused. Your completed images are saved."
@@ -184,9 +201,17 @@ def run_job(job_id):
         try:
             def progress(stage):
                 with LOCK:
-                    job["stage"] = stage
+                    if job["status"] != "stopping":
+                        job["stage"] = stage
             with Image.open(directory / "original.png") as image:
-                result, notes = REMOVER.process(image.convert("RGBA"), job["quality"], job["mode"], progress)
+                with PROCESSING_LOCK:
+                    with LOCK:
+                        if job["status"] == "stopping":
+                            item["status"] = "cancelled"
+                            job.update(status="stopped", current=None, stage="Queue stopped. Finished images are saved.")
+                            persist(job)
+                            return
+                    result, notes = REMOVER.process(image.convert("RGBA"), job["quality"], job["mode"], progress)
             save_png(result, directory / "automatic.png")
             save_png(result, directory / "result.png")
             thumbnail(result, directory / "thumbnail.png")
@@ -199,17 +224,78 @@ def run_job(job_id):
             with LOCK:
                 item.update(status="error", error=public_error(exc, "The image could not be processed. Check the model installation, available memory, and source image, then retry."))
         with LOCK:
+            if job["status"] == "stopping":
+                job.update(status="stopped", current=None, stage="Queue stopped. Finished images are saved.")
+                persist(job)
+                return
             persist(job)
     with LOCK:
-        job["status"] = "complete"
+        job["status"] = "stopped" if job["status"] in {"stopping", "stopped"} else "complete"
         job["current"] = None
-        job["stage"] = "Batch finished. Review the edges before exporting."
+        job["stage"] = "Queue stopped. Finished images are saved." if job["status"] == "stopped" else "Batch finished. Review the edges before exporting."
         persist(job)
 
 
 @app.get("/api/config")
 def config():
-    return {"appId": APP_ID, "name": APP_NAME, "version": VERSION, "token": TOKEN, "models": model_status(), "maxFiles": 50}
+    return {"appId": APP_ID, "name": APP_NAME, "version": VERSION, "token": TOKEN, "models": model_status(), "maxFiles": 50,
+            "preferences": SETTINGS.get()}
+
+
+@app.get("/api/settings")
+def settings_status():
+    return {"preferences": SETTINGS.get(), "models": model_status(verify=False),
+            "integration": INTEGRATION_CONTROLLER.status() if INTEGRATION_CONTROLLER else {"enabled": False, "origin": None}}
+
+
+@app.put("/api/settings")
+def update_settings(values: dict):
+    try:
+        validated = validate_settings(values, SETTINGS.get())
+        if INTEGRATION_CONTROLLER and INTEGRATION_CONTROLLER.managed_by:
+            INTEGRATION_CONTROLLER.start()
+        elif validated["integration_enabled"]:
+            if not INTEGRATION_CONTROLLER:
+                raise ValueError("Open the desktop app to enable local integrations.")
+            INTEGRATION_CONTROLLER.start()
+        elif INTEGRATION_CONTROLLER:
+            INTEGRATION_CONTROLLER.stop()
+        SETTINGS.update(validated)
+        return settings_status()
+    except (ValueError, RuntimeError, OSError) as exc:
+        raise HTTPException(400, public_error(exc, "Settings could not be saved. Check the output folder and try again.")) from exc
+
+
+@app.get("/api/integration/key")
+def integration_key(request: Request):
+    if not secrets.compare_digest(request.headers.get("X-Cutout-Token", ""), TOKEN):
+        raise HTTPException(403, "Open Settings in this app to copy the API key.")
+    if not INTEGRATION_CONTROLLER or not INTEGRATION_CONTROLLER.status()["enabled"]:
+        raise HTTPException(409, "Enable local integrations first.")
+    return {"key": INTEGRATION_CONTROLLER.token}
+
+
+def request_editor(project_id):
+    if not re.fullmatch(r"[a-f0-9]{32}", project_id):
+        raise ValueError("Editable project not found.")
+    with LOCK:
+        if project_id not in JOBS:
+            try:
+                job = json.loads((DATA / project_id / "manifest.json").read_text(encoding="utf-8"))
+                if job["id"] != project_id or job["status"] != "complete":
+                    raise ValueError("Project is not ready.")
+                JOBS[project_id] = job
+            except (OSError, ValueError, KeyError) as exc:
+                raise ValueError("Editable project not found.") from exc
+        if project_id not in EDITOR_REQUESTS:
+            EDITOR_REQUESTS.append(project_id)
+    return {"ok": True, "status": "requested"}
+
+
+@app.post("/api/integration/next")
+def next_editor_request():
+    with LOCK:
+        return {"project_id": EDITOR_REQUESTS.pop(0) if EDITOR_REQUESTS else None}
 
 
 @app.get("/api/about")
@@ -233,7 +319,7 @@ def create_job(files: list[UploadFile] = File(...), quality: str = Form("detail"
         raise HTTPException(400, "Unknown processing setting.")
     # One active batch avoids surprising concurrent memory and disk consumption.
     with LOCK:
-        if any(j["status"] in {"running", "queued", "pausing"} for j in JOBS.values()):
+        if any(j["status"] in {"running", "queued", "pausing", "stopping"} for j in JOBS.values()):
             raise HTTPException(409, "A batch is already processing. Pause it or wait until it finishes.")
         job_id = uuid.uuid4().hex
         directory = DATA / job_id
@@ -281,8 +367,17 @@ def control(job_id: str, action: str):
         job = get_job(job_id)
         if action == "pause" and job["status"] in {"queued", "running"}:
             job["status"] = "paused" if job["status"] == "queued" else "pausing"
-        elif action in {"resume", "retry"} and job["status"] in {"paused", "complete"}:
-            if any(j["status"] in {"queued", "running", "pausing"} for j in JOBS.values()):
+        elif action == "stop" and job["status"] in {"queued", "running", "pausing", "paused"}:
+            active = any(item["status"] == "running" for item in job["items"])
+            for item in job["items"]:
+                if item["status"] == "waiting":
+                    item["status"] = "cancelled"
+            job["status"] = "stopping" if active else "stopped"
+            job["stage"] = "Stopping. The current image may finish; remaining images are cancelled." if active else "Queue stopped. Finished images are saved."
+            if not active:
+                job["current"] = None
+        elif action in {"resume", "retry"} and job["status"] in {"paused", "complete", "stopped"} and not (action == "resume" and job["status"] == "stopped"):
+            if any(j["status"] in {"queued", "running", "pausing", "stopping"} for j in JOBS.values()):
                 raise HTTPException(409, "Another batch is processing.")
             if action == "retry":
                 for item in job["items"]:
@@ -408,7 +503,7 @@ def batch_preview(job_id: str, request: BatchGeometry):
 def batch_geometry(job_id: str, request: BatchGeometry):
     with LOCK:
         job = get_job(job_id)
-        if job["status"] not in {"complete", "paused"}:
+        if job["status"] not in {"complete", "paused", "stopped"}:
             raise HTTPException(409, "Pause the batch or wait for it to finish before changing images.")
         if len({target.id for target in request.items}) != len(request.items):
             raise HTTPException(400, "Select each image only once.")
@@ -496,8 +591,7 @@ def image_file(job_id: str, item_id: str, kind: str, download: bool = False):
         return FileResponse(path, media_type="image/png", filename=item["output"] if download else None)
 
 
-@app.get("/api/jobs/{job_id}/download.zip")
-def download_zip(job_id: str):
+def make_zip(job_id: str):
     with LOCK:
         job = get_job(job_id)
         ready = [i for i in job["items"] if i["status"] == "done"]
@@ -523,6 +617,12 @@ def download_zip(job_id: str):
                     exported["auto_cropped_on_export"] = True
             bundle.writestr("batch-manifest.json", json.dumps(manifest, ensure_ascii=False, indent=2))
         archive.seek(0)
+    return archive
+
+
+@app.get("/api/jobs/{job_id}/download.zip")
+def download_zip(job_id: str):
+    archive = make_zip(job_id)
     def stream():
         try:
             while chunk := archive.read(1024 * 1024):
@@ -530,6 +630,57 @@ def download_zip(job_id: str):
         finally:
             archive.close()
     return StreamingResponse(stream(), media_type="application/zip", headers={"Content-Disposition": 'attachment; filename="cutouts-' + job_id[:8] + '.zip"'})
+
+
+class ExportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    item_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+
+
+@app.post("/api/exports/{job_id}")
+def export_saved(job_id: str, data: ExportRequest):
+    folder = SETTINGS.get()["output_folder"]
+    if not folder:
+        raise HTTPException(409, "Choose an export folder in Settings first.")
+    directory = Path(folder)
+    source = None
+    try:
+        directory.mkdir(parents=True, exist_ok=True)
+        with LOCK:
+            if data.item_id:
+                _, item, item_dir = get_item(job_id, data.item_id)
+                if item["status"] != "done":
+                    raise HTTPException(409, "Wait for the cutout to finish.")
+                content, _, _ = prepare_download(item, item_dir / "result.png")
+                source = io.BytesIO(content) if content is not None else (item_dir / "result.png").open("rb")
+                name = item["output"]
+            else:
+                source = make_zip(job_id)
+                name = "cutouts-" + job_id[:8] + ".zip"
+            # Filenames come from saved projects, never from an arbitrary caller path.
+            name = Path(name.replace("\\", "/")).name
+            for counter in range(10000):
+                target = directory / (name if counter == 0 else f"{Path(name).stem} ({counter+1}){Path(name).suffix}")
+                try:
+                    output = target.open("xb")
+                    break
+                except FileExistsError:
+                    continue
+            else:
+                raise HTTPException(409, "Choose another output folder.")
+            try:
+                with output:
+                    while chunk := source.read(1024 * 1024):
+                        output.write(chunk)
+            except BaseException:
+                target.unlink(missing_ok=True)
+                raise
+        return {"ok": True, "name": target.name, "path": str(target), "folder": str(directory)}
+    except OSError as exc:
+        raise HTTPException(400, "The export could not be saved. Check folder permissions or choose another folder.") from exc
+    finally:
+        if source:
+            source.close()
 
 
 app.mount("/", StaticFiles(directory=ROOT / "web", html=True), name="web")

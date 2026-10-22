@@ -60,9 +60,11 @@ def test_model_setup_subprocess_preserves_command_arguments(tmp_path, monkeypatc
     calls = []
     executable = str(tmp_path / "runtime with spaces" / "python.exe")
     resources = tmp_path / "application folder"
+    module_path = tmp_path / "installed package" / "desktop.py"
     monkeypatch.setattr(sys, "executable", executable)
     monkeypatch.setattr(app_paths, "FROZEN", frozen)
     monkeypatch.setattr(desktop, "RESOURCE_DIR", resources)
+    monkeypatch.setattr(desktop, "__file__", str(module_path))
     monkeypatch.setattr(model_manager, "model_status", lambda: {"detail": True, "fast": False})
 
     def run(command, **kwargs):
@@ -72,7 +74,7 @@ def test_model_setup_subprocess_preserves_command_arguments(tmp_path, monkeypatc
     monkeypatch.setattr(subprocess, "run", run)
     api = desktop.DesktopApi()
     assert api.setup_models() == {"ok": True, "models": {"detail": True, "fast": False}}
-    expected = [executable] + ([] if frozen else [str(resources / "desktop.py")]) + ["--setup-models"]
+    expected = [executable] + ([] if frozen else [str(module_path.resolve())]) + ["--setup-models"]
     assert calls[0][0] == expected
     options = calls[0][1]
     assert not options.get("shell", False)

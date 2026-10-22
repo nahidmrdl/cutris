@@ -14,8 +14,8 @@
 </p>
 
 <p align="center">
-  <a href="../../releases/latest"><strong>Download for Windows</strong></a> &nbsp;·&nbsp;
-  <a href="docs/usage.md">Editor guide</a> &nbsp;·&nbsp;
+  <a href="../../releases/latest"><strong>Download for Windows</strong></a> &nbsp;|&nbsp;
+  <a href="docs/usage.md">Editor guide</a> &nbsp;|&nbsp;
   <a href="docs/windows.md">Setup &amp; troubleshooting</a>
 </p>
 
@@ -27,17 +27,29 @@
 
 ![The cutris editor with a compact image queue, adaptive preview, and editing and export controls visible together.](docs/assets/workspace.png)
 
-- **Batch work:** queue up to 50 images, reorder, pause, resume, and reopen saved batches.
+- **Batch work:** queue up to 50 images, reorder, pause, resume, stop remaining work, or clear the queue. Saved batches and files are kept.
 - **Local AI:** BiRefNet detail and lite models run on your CPU. No account, subscription, or image uploads.
 - **Precise repairs:** Erase, Restore, Magic wand, undo, and redo. Inspect against light, dark, or custom preview colors.
 - **Batch tools:** auto crop a batch, resize selected images, or make square icons with transparent padding.
 - **Crop and resize:** adjust an individual crop and output size. PNGs and ZIPs auto crop by default and respect saved settings.
 - **Ready to use:** transparent PNGs, individually or in an ordered ZIP. Originals stay untouched.
+- **Your defaults:** export folder, auto crop, processing quality, and preview preferences in Settings.
+- **AI models:** see which models are installed before choosing a download or repair.
+- **Local integrations:** use the desktop API for automation and open editable results in Cutris, or run the standalone CLI/API.
 
 <details>
 <summary>Preview batch tools</summary>
 
 ![Select cutouts and preview square icons with a chosen canvas size and transparent padding.](docs/assets/batch-tools.png)
+
+</details>
+
+<details>
+<summary>Settings and AI models</summary>
+
+![Cutris settings for export folders and automatic cropping.](docs/assets/settings.png)
+
+![Installed AI models with download and repair options.](docs/assets/models.png)
 
 </details>
 
@@ -60,6 +72,22 @@
 Windows 10/11 x64, CPU processing, and WebView2 are required. Setup installs WebView2 if missing. **16 GB RAM** is recommended for Maximum detail and large images. A portable ZIP is also available in each release.
 
 Input: PNG, JPG, WebP, BMP, and TIFF; up to 30 MB and 24 megapixels per image. Fine hair, glass, shadows, and pale edges can need manual repair. [Formats, limits, and editing controls →](docs/usage.md)
+
+## CLI and API
+
+Use Cutris from scripts or local applications without opening the desktop editor. Install the release wheel with Python 3.11–3.13:
+
+```powershell
+python -m pip install .\cutris-VERSION-py3-none-any.whl
+cutris remove input.jpg -o cutout.png
+cutris serve --port 4320
+```
+
+PNG output auto crops by default. The authenticated API can also save editable projects for later touch-ups in Cutris. [Installation, options, and API contract →](docs/cli-api.md)
+
+## Use with gflowris
+
+[gflowris](https://github.com/nahidmrdl/gflowris) queues image generation in Google Flow and includes the complete Cutris editor. Generate images, remove backgrounds, refine cutouts, and save edits back to the queue. Cutris also works independently for your own images and automation.
 
 ## Development
 

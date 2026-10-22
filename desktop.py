@@ -52,6 +52,9 @@ class LocalServer:
         import server
         import uvicorn
         self.module = server
+        from cutris.runtime import IntegrationRuntime
+        self.integration = IntegrationRuntime(remover=server.REMOVER, lock=server.PROCESSING_LOCK)
+        server.INTEGRATION_CONTROLLER = self.integration
         server.DESKTOP_MODE = desktop_mode
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         # Reserve the port before starting the thread to avoid a startup race.
@@ -71,6 +74,8 @@ class LocalServer:
                 with urllib.request.urlopen(self.url + "/api/config", timeout=.4) as response:
                     config = json.load(response)
                 if config.get("appId") == APP_ID and config.get("token") == self.module.TOKEN:
+                    if self.module.SETTINGS.get()["integration_enabled"]:
+                        self.integration.start()
                     return
             except (OSError, ValueError):
                 pass
@@ -86,6 +91,7 @@ class LocalServer:
                     self.module.persist(job)
 
     def stop(self) -> None:
+        self.integration.stop()
         self.server.should_exit = True
         if self.thread.is_alive() and threading.current_thread() is not self.thread:
             self.thread.join(timeout=5)
@@ -98,6 +104,42 @@ class DesktopApi:
     def __init__(self):
         self._window = None
         self._model_lock = threading.Lock()
+        self._workspace_return = None
+        import server
+        if server.INTEGRATION_CONTROLLER:
+            server.INTEGRATION_CONTROLLER.open_editor = self._open_editor
+
+    def _open_editor(self, project_id):
+        import server
+        result = server.request_editor(project_id)
+        if self._window:
+            self._window.restore()
+            self._window.show()
+        return result
+
+    def choose_output_folder(self):
+        if not self._window:
+            return {"folder": None}
+        import webview
+        selected = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+        return {"folder": selected[0] if selected else None}
+
+    def integration_context(self):
+        return {"workspace": "gflowris" if self._workspace_return else None}
+
+    def return_to_workspace(self, project_id=None):
+        if self._workspace_return:
+            return self._workspace_return(project_id)
+        return {"ok": False, "error": "This is the standalone Cutris app."}
+
+    def open_output_folder(self):
+        from cutris.settings import SettingsStore
+        folder = SettingsStore().get()["output_folder"]
+        if folder and sys.platform == "win32":
+            Path(folder).mkdir(parents=True, exist_ok=True)
+            os.startfile(folder)
+            return True
+        return False
 
     def document_state(self, dirty: bool, processing: bool) -> None:
         if self._window:
@@ -112,7 +154,7 @@ class DesktopApi:
             from model_manager import model_status
             command = [sys.executable]
             if not FROZEN:
-                command.append(str(RESOURCE_DIR / "desktop.py"))
+                command.append(str(Path(__file__).resolve()))
             command.append("--setup-models")
             result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                                     stderr=subprocess.DEVNULL,
@@ -216,10 +258,15 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--setup-models", action="store_true", help="Open model setup for installation or repair.")
     parser.add_argument("--browser", action="store_true", help="Use the system browser instead of a desktop window.")
     parser.add_argument("--port", type=int, default=0, help="Local port; 0 selects a free port.")
+    parser.add_argument("--project", help="Open a saved API project for manual editing.")
     parser.add_argument("--self-test", action="store_true", help="Verify the packaged runtime without opening a window.")
     parser.add_argument("--check-inference", action="store_true", help="Include real inference in --self-test.")
     parser.add_argument("--report", type=Path, help="Write the self-test result as JSON.")
     args = parser.parse_args(argv)
+    if args.project:
+        import re
+        if not re.fullmatch(r"[a-f0-9]{32}", args.project) or not (DATA_DIR / "jobs" / args.project / "manifest.json").is_file():
+            parser.error("The requested editable project was not found.")
     ensure_directories()
     if args.self_test:
         return self_test(args.report, args.check_inference)
@@ -233,15 +280,16 @@ def main(argv: list[str] | None = None) -> int:
     service = None
     try:
         from model_manager import model_status
-        if not any(model_status().values()):
+        if not args.project and not any(model_status().values()):
             from model_setup_ui import run_model_setup
             if not run_model_setup(required=True):
                 return 1
         service = LocalServer(args.port, desktop_mode=not args.browser)
         service.start()
+        editor_url = service.url + ("?job=" + args.project if args.project else "")
         if args.browser:
             import webbrowser
-            webbrowser.open(service.url)
+            webbrowser.open(editor_url)
             if sys.stdout is not None:
                 print(f"{APP_NAME} is running locally. Keep this process open; Ctrl+C exits.")
             while service.thread.is_alive():
@@ -258,7 +306,7 @@ def main(argv: list[str] | None = None) -> int:
         # Leave room for the taskbar and window frame on scaled laptop displays.
         width = min(1360, max(640, screen.width - 48)) if screen else 1360
         height = min(820, max(480, screen.height - 64)) if screen else 820
-        window = webview.create_window(APP_NAME, service.url, js_api=api,
+        window = webview.create_window(APP_NAME, editor_url, js_api=api,
                                        width=width, height=height, min_size=(min(900, width), min(620, height)),
                                        background_color="#f6f5ef", text_select=True,
                                        localization={"global.quitConfirmation": f"Close {APP_NAME}? Unsaved touch-ups will be discarded. Processing stops after the current image. Saved work stays on this computer."})

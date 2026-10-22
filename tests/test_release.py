@@ -83,6 +83,9 @@ def fixture_release(root):
     (directory / names[1]).write_bytes(b'portable')
     with zipfile.ZipFile(directory / names[2], 'w') as archive:
         archive.writestr('cutris-1.2.3/branding.json', metadata['branding_text'])
+    with zipfile.ZipFile(directory / names[3], 'w') as archive:
+        archive.writestr('cutris/resources/branding.json', metadata['branding_text'])
+        archive.writestr('cutris-1.2.3.dist-info/METADATA', 'Name: cutris\nVersion: 1.2.3\n')
     write_checksums(directory, names)
     return metadata
 
@@ -113,6 +116,16 @@ def test_release_rejects_unexpected_files(tmp_path):
     metadata = fixture_release(tmp_path)
     (tmp_path / 'release' / 'private.txt').write_text('private', encoding='utf-8')
     with pytest.raises(ValueError, match='exactly'):
+        verify_artifacts(tmp_path, metadata)
+
+
+def test_release_rejects_wrong_wheel_version(tmp_path):
+    metadata = fixture_release(tmp_path)
+    names = metadata['assets']
+    with zipfile.ZipFile(tmp_path / 'release' / names[3], 'w') as archive:
+        archive.writestr('cutris/resources/branding.json', '{}')
+    write_checksums(tmp_path / 'release', names)
+    with pytest.raises(ValueError, match='Wheel version'):
         verify_artifacts(tmp_path, metadata)
 
 

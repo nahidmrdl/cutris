@@ -21,14 +21,15 @@ The release page formats those notes as:
 - Batch background removal with BiRefNet
 - Manual Erase, Restore, and Magic wand tools
 
-The workflow tests, builds, verifies the frozen executable, collects licenses, and audits the publication payload. It then uploads these assets to a GitHub release:
+The manual workflow builds the app, collects licenses, audits the publication payload, and verifies release artifacts. It does not run regression tests. It then uploads these assets to a GitHub release:
 
 | Asset | Use |
 | --- | --- |
 | `cutris-1.0.0-windows-x64-setup.exe` | Windows installer; models download separately. |
 | `cutris-1.0.0-windows-x64-portable.zip` | App bundle without an installer. |
 | `cutris-1.0.0-source.zip` | Clean source for this version. |
-| `SHA256SUMS.txt` | SHA-256 checksums for all three files. |
+| `cutris-1.0.0-py3-none-any.whl` | Standalone Python CLI/API; desktop dependencies optional. |
+| `SHA256SUMS.txt` | SHA-256 checksums for all four files. |
 
 The selected version is stamped into a release snapshot and tagged `v1.0.0`; the default branch is not changed. Enter the next version in the workflow for each update. Published versions and existing tags are never overwritten.
 
@@ -56,7 +57,7 @@ The installer build requires the Inno Setup compiler. The script finds an instal
 .\.venv\Scripts\python.exe scripts\build.py --installer --iscc "C:\Path\To\ISCC.exe"
 ```
 
-Without `--installer`, the build produces the app bundle, portable ZIP, source ZIP, and checksums. To prepare only the clean source archive:
+Without `--installer`, the build produces the app bundle, portable ZIP, CLI/API wheel, source ZIP, and checksums. To prepare only the clean source archive:
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\build.py --source-only
@@ -81,6 +82,8 @@ The build audits the payload for the current workstation account, configured Git
 The audit reports file labels instead of printing the private values. Review release contents yourself as well, especially any new screenshots or fixtures.
 
 ## Release checks
+
+Developers can explicitly add `--verify-runtime` to the build command to run the bundled executable's smoke check. The release workflow leaves this optional check disabled.
 
 1. Install the pinned source and build dependencies and run the automated tests.
 2. Build the desktop application, collect bundled dependency license texts, and compile the installer.

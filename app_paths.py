@@ -10,6 +10,9 @@ import sys
 APP_ID = "cutout-studio"
 FROZEN = bool(getattr(sys, "frozen", False))
 RESOURCE_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+SOURCE_CHECKOUT = (RESOURCE_DIR / "branding.json").is_file() and not FROZEN
+if not (RESOURCE_DIR / "branding.json").is_file():
+    RESOURCE_DIR = RESOURCE_DIR / "cutris" / "resources"
 BRANDING = json.loads((RESOURCE_DIR / "branding.json").read_text(encoding="utf-8"))
 APP_NAME = BRANDING["display_name"]
 VERSION = BRANDING["version"]
@@ -19,7 +22,7 @@ PUBLISHER = BRANDING["publisher"]
 def storage_root() -> Path:
     if os.environ.get("CUTOUT_HOME"):
         return Path(os.environ["CUTOUT_HOME"]).expanduser().resolve()
-    if not FROZEN:
+    if not FROZEN and SOURCE_CHECKOUT:
         # Preserve saved work in an existing source checkout.
         return RESOURCE_DIR
     if sys.platform == "win32":

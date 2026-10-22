@@ -81,6 +81,10 @@ def audit(paths: list[Path]) -> list[str]:
 
     def examine(data: bytes, label: str, depth=0, *, executable=False):
         lower = data.lower()
+        # Public repository links are deliberate references, not workstation
+        # identity leaks. Keep account/path checks everywhere outside those URLs.
+        lower = re.sub(rb'https://github\.com/[a-z0-9_-]+/[a-z0-9_.-]+',
+                       b'https://github.com/[public-repository]', lower)
         if any(needle in lower for needle in needles):
             report(label, 'private identity or workstation path detected')
         if executable:

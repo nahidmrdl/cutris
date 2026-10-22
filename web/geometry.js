@@ -69,7 +69,7 @@ function geometryRefresh() {
   $('geometryResetSize').disabled = geometryState.busy || !resize;
   $('geometryRemoveCanvas').disabled = geometryState.busy;
   $('geometryCanvasSettings').hidden = !geometryState.canvas;
-  if (geometryState.canvas) $('geometryCanvasInfo').textContent = `${geometryState.canvas.size} × ${geometryState.canvas.size} px · ${geometryState.canvas.padding} px padding`;
+  if (geometryState.canvas) $('geometryCanvasInfo').textContent = `${geometryState.canvas.size} × ${geometryState.canvas.size} px with ${geometryState.canvas.padding} px padding`;
   $('geometryDialog').setAttribute('aria-busy', String(geometryState.busy));
   $('geometryApply').textContent = geometryState.busy ? 'Saving…' : 'Apply changes';
   try {

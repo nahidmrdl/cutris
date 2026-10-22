@@ -28,27 +28,32 @@ function renderQueue() {
   $('setup').hidden = !!job; $('settings').hidden = !!job; $('batchActions').hidden = !job;
   $('queueCount').textContent = `${job ? job.items.length : state.files.length} / 50`;
   $('start').disabled = !state.files.length || state.busy || (state.models && !state.models[$('quality').value]);
-  $('clear').disabled = !state.files.length || state.busy; $('sort').disabled = state.busy;
+  const processing = job && ['queued','running','pausing','stopping'].includes(job.status);
+  $('clear').disabled = (!job && !state.files.length) || state.busy || !!processing;
+  $('clear').title = processing ? 'Stop the queue before clearing it.' : 'Clear this view. Saved images and previous batches are kept.';
+  $('sort').hidden = !!job; $('sort').disabled = state.busy;
   const list = job ? job.items : state.files;
   const queueHTML = list.length ? list.map((item, index) => {
     const name = job ? item.name : item.file.name;
     const src = job ? (item.width ? imageURL(item, item.status === 'done' ? 'thumbnail' : 'original-thumbnail') : '') : item.url;
-    const status = job ? ({waiting: 'Waiting', running: 'Working on the details…', done: item.revision ? 'Ready · saved changes' : 'Ready to review', error: 'Could not process'}[item.status]) : `${(item.file.size / 1024 / 1024).toFixed(1)} MB`;
+    const status = job ? ({waiting: 'Waiting', running: 'Working on the details…', done: item.revision ? 'Saved changes ready' : 'Ready to review', error: 'Could not process', cancelled: 'Cancelled'}[item.status]) : `${(item.file.size / 1024 / 1024).toFixed(1)} MB`;
     return `<div class="queue-item ${state.selected === item.id ? 'selected' : ''}" data-id="${item.id}" tabindex="0" role="button" aria-label="Preview ${escapeText(name)}"><span class="queue-number">${String(index + 1).padStart(2, '0')}</span>${src ? `<img src="${src}" alt="" loading="lazy">` : '<span>!</span>'}<div class="queue-copy"><strong title="${escapeText(name)}">${escapeText(name)}</strong><small>${status}</small></div>${job ? `<span class="status-dot ${item.status}"></span>` : `<div class="moves"><button data-move="-1" ${index === 0 ? 'disabled' : ''} aria-label="Move ${escapeText(name)} up" title="Move up">↑</button><button data-move="1" ${index === list.length - 1 ? 'disabled' : ''} aria-label="Move ${escapeText(name)} down" title="Move down">↓</button><button data-remove="1" aria-label="Remove ${escapeText(name)}" title="Remove from queue">×</button></div>`}</div>`;
   }).join('') : '<div class="empty-queue">Your next batch of images belongs here.</div>';
   if (state.queueHTML !== queueHTML) { $('queue').innerHTML = queueHTML; state.queueHTML = queueHTML; }
   if (job) {
-    const completed = job.items.filter(i => ['done', 'error'].includes(i.status)).length;
+    const completed = job.items.filter(i => ['done', 'error', 'cancelled'].includes(i.status)).length;
     const ready = job.items.filter(i => i.status === 'done').length;
     const failed = job.items.filter(i => i.status === 'error').length;
     $('progressBar').style.width = `${completed / job.items.length * 100}%`;
-    $('progressLabel').textContent = `${ready} of ${job.items.length} ready${failed ? ` · ${failed} failed` : ''}`;
+    $('progressLabel').textContent = `${ready} of ${job.items.length} ready${failed ? `, ${failed} failed` : ''}`;
     $('stage').textContent = job.status === 'pausing' ? 'Will pause as soon as this image is finished.' : job.stage;
-    $('pause').hidden = job.status === 'complete'; $('pause').disabled = job.status === 'pausing';
-    $('pause').textContent = job.status === 'paused' ? 'Resume batch' : 'Pause after this image';
-    $('retry').hidden = !failed || !['paused', 'complete'].includes(job.status);
-    $('zip').disabled = !ready || state.dirty || state.busy; $('zip').textContent = `Download ${ready} PNG${ready === 1 ? '' : 's'} · ordered ZIP`;
-    $('newBatch').disabled = state.busy || !['paused', 'complete'].includes(job.status);
+    $('pause').hidden = false; $('pause').disabled = state.busy || !['queued','running','paused'].includes(job.status);
+    $('pause').textContent = job.status === 'paused' ? 'Resume queue' : 'Pause queue';
+    $('stopQueue').disabled = state.stoppingQueue || !['queued','running','pausing','paused'].includes(job.status);
+    $('stopQueue').textContent = state.stoppingQueue || job.status === 'stopping' ? 'Stopping…' : 'Stop queue';
+    $('retry').hidden = !failed || !['paused', 'complete', 'stopped'].includes(job.status);
+    $('zip').disabled = !ready || state.dirty || state.busy; $('zip').textContent = `Download ${ready} PNG${ready === 1 ? '' : 's'} (ZIP)`;
+    $('newBatch').disabled = state.busy || !['paused', 'complete', 'stopped'].includes(job.status);
   }
   if (typeof updateBatchTools === 'function') updateBatchTools();
 }
@@ -70,7 +75,13 @@ $('dropZone').ondragleave = () => $('dropZone').classList.remove('over');
 $('dropZone').ondrop = safely(async event => { event.preventDefault(); $('dropZone').classList.remove('over'); await addFiles(event.dataTransfer.files); });
 window.addEventListener('dragover', event => event.preventDefault()); window.addEventListener('drop', event => event.preventDefault());
 $('sort').onclick = () => { state.files.sort((a,b) => a.file.name.localeCompare(b.file.name, undefined, {numeric:true})); renderQueue(); };
-$('clear').onclick = safely(async () => { if (await confirmAction('Remove all images from this queue? Your files on disk will not be changed.', 'Clear this queue?', 'Clear queue', 'Keep queue')) { state.files.forEach(f => URL.revokeObjectURL(f.url)); state.files = []; emptyPreview(); renderQueue(); } });
+$('clear').onclick = safely(async () => {
+  if (state.busy || state.job && ['queued','running','pausing','stopping'].includes(state.job.status)) return;
+  if (!await canLeave()) return;
+  state.files.forEach(f => URL.revokeObjectURL(f.url)); state.files = []; state.job = null;
+  localStorage.removeItem('cutout-job'); emptyPreview(); renderQueue(); updateTools();
+  notice('Queue cleared. Saved files and previous batches are kept.');
+});
 $('queue').onclick = safely(async event => {
   const row = event.target.closest('.queue-item'); if (!row || state.busy) return;
   const index = state.files.findIndex(f => f.id === row.dataset.id);
@@ -103,7 +114,7 @@ async function selectFile(id, force = false) {
   canvas.width = original.naturalWidth; canvas.height = original.naturalHeight;
   $('previewEmpty').hidden = true; $('canvasWrap').hidden = false;
   $('dimensions').textContent = `${canvas.width} × ${canvas.height} px`;
-  $('imageStatus').textContent = automatic ? 'Transparent PNG · original dimensions' : item.error || (state.job ? 'Original · cutout not ready yet' : 'Original · ready for the queue');
+  $('imageStatus').textContent = automatic ? 'Transparent PNG at original dimensions' : item.error || (state.job ? 'Original image; cutout not ready yet' : 'Original image ready for the queue');
   $('notes').innerHTML = (item.notes?.length ? item.notes : ['Inspect the edges at 100%, especially pale details. White-on-white features may need a touch-up.']).map(note => `<p>${escapeText(note)}</p>`).join('');
   resizeCanvas(); renderCanvas(); updateTools();
 }
@@ -177,7 +188,7 @@ function renderCanvas() {
   $('dimensions').textContent = `${canvas.width} × ${canvas.height} px`;
   const [width, height] = outputDimensions();
   const transformed = !!(currentItem()?.transform?.crop || currentItem()?.transform?.resize || currentItem()?.transform?.canvas);
-  $('imageStatus').textContent = !result ? (currentItem()?.error || 'Original · unchanged') : state.tool && transformed ? `Editing full canvas · output ${width} × ${height} px` : transformed ? `Transparent PNG · ${currentItem().transform.canvas ? 'square canvas' : currentItem().transform.crop ? (currentItem().transform.resize ? 'cropped and resized' : 'cropped') : 'resized'}` : 'Transparent PNG · original dimensions';
+  $('imageStatus').textContent = !result ? (currentItem()?.error || 'Original image unchanged') : state.tool && transformed ? `Editing the full canvas for a ${width} × ${height} px output` : transformed ? `Transparent PNG, ${currentItem().transform.canvas ? 'square canvas' : currentItem().transform.crop ? (currentItem().transform.resize ? 'cropped and resized' : 'cropped') : 'resized'}` : 'Transparent PNG at original dimensions';
   if (previousWidth !== canvas.width || previousHeight !== canvas.height) panPosition = null;
   layoutCanvas();
 }
@@ -206,7 +217,7 @@ function updateTools() {
   if (state.job) $('newBatch').disabled = state.busy || !['paused','complete'].includes(state.job.status);
   $('save').disabled = !ready || !state.dirty || state.busy; $('download').disabled = !ready || state.dirty || state.busy;
   if (state.job) $('zip').disabled = state.busy || state.dirty || !state.job.items.some(i => i.status === 'done');
-  $('dirtyLabel').textContent = state.dirty ? 'Unsaved touch-up · save before downloading' : ready ? 'Saved · original safely preserved' : 'Select a finished image to touch up.';
+  $('dirtyLabel').textContent = state.dirty ? 'Save your touch-up before downloading' : ready ? 'Saved. Your original is safely preserved.' : 'Select a finished image to touch up.';
   $('resultView').classList.toggle('active', state.view === 'result'); $('originalView').classList.toggle('active', state.view === 'original');
   $('resultView').setAttribute('aria-pressed', state.view === 'result'); $('originalView').setAttribute('aria-pressed', state.view === 'original');
   $('resultView').disabled = !ready;
@@ -262,6 +273,12 @@ $('start').onclick = safely(async () => {
   finally { state.busy = false; $('start').innerHTML = 'Remove backgrounds <span>↗</span>'; renderQueue(); updateTools(); }
 });
 $('pause').onclick = safely(async () => { await api(`/jobs/${state.job.id}/${state.job.status === 'paused' ? 'resume' : 'pause'}`,{method:'POST'}); await poll(); });
+$('stopQueue').onclick = safely(async () => {
+  if (!state.job || state.stoppingQueue || $('stopQueue').disabled) return;
+  state.stoppingQueue = true; renderQueue();
+  try { await api(`/jobs/${state.job.id}/stop`, {method:'POST'}); await poll(); }
+  finally { state.stoppingQueue = false; renderQueue(); }
+});
 $('retry').onclick = safely(async () => { await api(`/jobs/${state.job.id}/retry`,{method:'POST'}); await poll(); });
 $('newBatch').onclick = safely(async () => { if (!await canLeave()) return; state.job = null; localStorage.removeItem('cutout-job'); emptyPreview(); renderQueue(); notice('Ready for a new batch. Your earlier results are saved under Previous batches.'); });
 let polling = false;
@@ -289,8 +306,8 @@ async function poll() {
   finally { polling = false; }
 }
 setInterval(poll, 1600);
-$('historyButton').onclick = safely(async () => { const jobs = await api('/jobs'); $('historyList').innerHTML = jobs.length ? jobs.map(job => `<button data-job="${job.id}">${new Date(job.created*1000).toLocaleString()}<small>${job.count} images · ${escapeText(job.status)} · ${job.id.slice(0,8)}</small></button>`).join('') : '<p>No batches yet. Your first one will appear here.</p>'; $('historyDialog').showModal(); });
+$('historyButton').onclick = safely(async () => { const jobs = await api('/jobs'); $('historyList').innerHTML = jobs.length ? jobs.map(job => `<button data-job="${job.id}">${new Date(job.created*1000).toLocaleString()}<small class="history-details"><span>${job.count} images</span><span>${escapeText(job.status)}</span></small></button>`).join('') : '<p>No batches yet. Your first one will appear here.</p>'; $('historyDialog').showModal(); });
 $('closeHistory').onclick = () => $('historyDialog').close();
 $('historyList').onclick = safely(async event => { const button = event.target.closest('[data-job]'); if (!button) return; $('historyDialog').close(); if (!await canLeave()) return; const job = await api(`/jobs/${button.dataset.job}`); emptyPreview(); state.job = job; localStorage.setItem('cutout-job',job.id); renderQueue(); notice(); await selectFile(job.items.find(i=>i.status === 'done')?.id || job.items.find(i=>i.width)?.id); });
 window.addEventListener('beforeunload', event => { if (state.dirty) { event.preventDefault(); event.returnValue = ''; } });
-safely(async () => { const config = await api('/config'); state.token = config.token; applyBranding(config); applyModelAvailability(config.models); if (!config.models.detail && !config.models.fast) notice('No AI model is installed. Open AI models to download one, or run Setup.cmd when using the source project.'); const id = localStorage.getItem('cutout-job'); if (id) { try { state.job = await api(`/jobs/${id}`); renderQueue(); await selectFile(state.job.items.find(i=>i.status==='done')?.id || state.job.items.find(i=>i.width)?.id); } catch { localStorage.removeItem('cutout-job'); state.job = null; renderQueue(); } } updateTools(); })();
+safely(async () => { const config = await api('/config'); state.token = config.token; applyBranding(config); applyModelAvailability(config.models); state.preferences = config.preferences; if (typeof applyPreferences === 'function') applyPreferences(config.preferences); if (!config.models.detail && !config.models.fast) notice('No AI model is installed. Open AI models to download one, or run Setup.cmd when using the source project.'); const requested = new URLSearchParams(location.search).get('job'); const id = requested && /^[a-f0-9]{32}$/.test(requested) ? requested : localStorage.getItem('cutout-job'); if (id) { try { state.job = await api(`/jobs/${id}`); renderQueue(); await selectFile(state.job.items.find(i=>i.status==='done')?.id || state.job.items.find(i=>i.width)?.id); } catch { localStorage.removeItem('cutout-job'); state.job = null; renderQueue(); } } updateTools(); })();

@@ -47,7 +47,7 @@ def artifact_names(executable: str, version: str) -> list[str]:
         raise ValueError('Executable name must use lowercase letters, numbers and hyphens.')
     prefix = f'{executable}-{version}'
     return [f'{prefix}-windows-x64-setup.exe', f'{prefix}-windows-x64-portable.zip',
-            f'{prefix}-source.zip', 'SHA256SUMS.txt']
+            f'{prefix}-source.zip', f'cutris-{version}-py3-none-any.whl', 'SHA256SUMS.txt']
 
 
 def format_notes(notes: list[str], version: str, executable: str, repository: str) -> str:
@@ -59,7 +59,8 @@ def format_notes(notes: list[str], version: str, executable: str, repository: st
         (names[0], '**Windows installer**', 'Recommended. Installs the app and shortcuts.'),
         (names[1], 'Portable ZIP', 'Extract and run. No app installation.'),
         (names[2], 'Source ZIP', 'Versioned project source.'),
-        (names[3], 'SHA-256 checksums', 'Verify your download.'),
+        (names[3], 'CLI / API wheel', 'Python 3.11–3.13. Runs without the desktop app.'),
+        (names[4], 'SHA-256 checksums', 'Verify your download.'),
     ]
     return ('## What\'s new\n\n' + '\n'.join('- ' + markdown_text(note) for note in notes)
             + '\n\n## Downloads\n\n| Download | Details |\n| --- | --- |\n'
@@ -100,7 +101,7 @@ def verify_artifacts(root: Path, metadata: dict) -> dict[str, str]:
     directory = root / 'release'
     actual = {path.name for path in directory.iterdir()}
     if actual != set(names):
-        raise ValueError('Release folder must contain exactly the installer, portable, source and checksums.')
+        raise ValueError('Release folder must contain exactly the installer, portable, source, wheel and checksums.')
     for name in names:
         path = directory / name
         if path.is_symlink() or not path.is_file() or path.stat().st_size == 0:
@@ -120,6 +121,14 @@ def verify_artifacts(root: Path, metadata: dict) -> dict[str, str]:
             raise ValueError('Source archive version metadata does not match the build.')
         if any(name.lower().endswith('.onnx') for name in archive.namelist()):
             raise ValueError('AI model weights must not be included in source releases.')
+    with zipfile.ZipFile(directory / names[3]) as archive:
+        if archive.read('cutris/resources/branding.json').decode('utf-8') != metadata['branding_text']:
+            raise ValueError('Wheel version metadata does not match the build.')
+        package_metadata = archive.read(f'cutris-{metadata["version"]}.dist-info/METADATA').decode('utf-8')
+        if f'\nVersion: {metadata["version"]}\n' not in package_metadata:
+            raise ValueError('Wheel package version does not match the build.')
+        if any(name.lower().endswith('.onnx') for name in archive.namelist()):
+            raise ValueError('AI model weights must not be included in wheels.')
     return checksums
 
 
@@ -133,7 +142,7 @@ def finalize(root: Path) -> None:
     if summary:
         with Path(summary).open('a', encoding='utf-8', newline='\n') as stream:
             stream.write(f'## {metadata["display_name"]} {metadata["version"]}\n\n')
-            stream.write('Windows build, tests, bundled self-test and privacy audit passed.\n\n')
+            stream.write('Windows build, release artifact verification and privacy audit passed.\n\n')
             stream.write('The publish job will upload these assets before making the release public.\n\n')
             for name in metadata['assets']:
                 stream.write(f'- `{name}`\n')

@@ -97,6 +97,13 @@ def main():
         stage = "initialization"
         try:
             wait("Boolean(state.token && window.pywebview?.api?.document_state)")
+            check("desktop_startup_has_no_bridge_error", "!$('notice').textContent.includes('is not a function') && !$('modelsButton').hidden")
+            window.evaluate_js("state.dirty=true; updateTools()")
+            deadline = time.monotonic() + 5
+            while not window.confirm_close and time.monotonic() < deadline:
+                time.sleep(.05)
+            record("unsaved_edits_protect_close", window.confirm_close)
+            window.evaluate_js("state.dirty=false; updateTools()")
             check("layout_fits_window", "document.documentElement.scrollWidth <= innerWidth")
             stage = "transparent fixture processing"
             window.evaluate_js("""(() => {

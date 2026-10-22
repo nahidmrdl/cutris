@@ -14,6 +14,10 @@ Run from the source environment:
 
 Tests need working Windows loopback sockets. A restricted test runner that blocks asyncio socket initialization must allow local loopback for the server tests.
 
+The headless checks cover authenticated reads and uploads, request limits, default auto crop, safe CLI output, editable project layers, saved-editor exports, and imports without GUI libraries. Release checks validate the standalone wheel's branding and package version alongside the desktop artifacts.
+
+When Node.js is available, pytest also runs six JavaScript bridge checks for delayed method injection, browser mode, shutdown, close protection, and Save & return. These checks reproduce the previous `document_state` startup error against the earlier frontend.
+
 ## Native renderer check
 
 `tests/native_smoke.py` exercises the actual WebView2 renderer with a generated fixture: local native bridge, custom icon and favicon, general-background default, desktop layout, real AI processing, saved touch-up, exported alpha, ordered ZIP, About/licenses, and saved-batch history.
@@ -51,6 +55,10 @@ Build tooling scans the source archive and packaged runtime for the build accoun
 On GitHub-hosted Windows runners, the generic `runneradmin` account and its standard home path are excluded from automatic identity detection because upstream wheels contain the same public build metadata. Local and self-hosted builds keep the account checks. Configured Git identities and explicit `CUTOUT_PRIVATE_TERMS` are always checked.
 
 ## Scope and limits
+
+Queue Stop/Clear controls and the installed-models dialog were added after the recorded regression runs below. Their documentation screenshots use the current native renderer. No regression suite or CI run was started for these changes.
+
+Settings and integration validation: 204 pytest checks pass, including six nested JavaScript bridge cases, persistent preferences, crop-aware exports, safe duplicate filenames, authenticated desktop API access, and editable project requests. The companion's 33 regression tests pass. Forty-one native geometry checks cover bridge startup, unsaved-edit close protection, cropping, resizing, touch-ups, and exports. Sixteen native checks verify the complete editor in one gflowris window, automatic saved-edit syncing, Save & return, preserved originals and earlier exports, native folder access, and full settings. These embedded checks also pass using the built Cutris wheel rather than its source checkout.
 
 The model downloader is checked with deterministic simulated servers for interruption, HTTP Range behavior, corrupt data, size mismatches, retries, cancellation, and concurrent setup. Real-host download and installer smoke results are recorded locally under ignored build output.
 

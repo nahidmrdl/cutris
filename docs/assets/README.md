@@ -1,5 +1,6 @@
 # Repository visuals
 
+- `workspace.png`, `batch-tools.png`, `settings.png`, and `models.png` show the current standalone Cutris interface using the existing approved demonstration cutouts. Private runtime paths and user settings are excluded.
 - `hero.png` uses the approved app icon supplied by the project maintainer. Its source metadata was removed before inclusion. Run `scripts/make_repo_assets.py` from the repository root to reproduce the layout with `packaging/assets/app.png`.
 - `demo.png` compares `tests/synthetic-character.png` with the real result from BiRefNet **Maximum detail**, **White illustration**. Its checkerboard and labels are presentation only; the cutout is not manually retouched. It is a comparison graphic, not an app screenshot.
 - `make_demo.py` reproduces the comparison with the installed detail model. Run it from the repository root using the source environment.

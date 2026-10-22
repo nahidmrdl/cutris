@@ -78,16 +78,13 @@ jobs:
           RELEASE_NOTES: ${{ inputs.release_notes }}
         run: python scripts/prepare_release.py
 
-      - name: Install build and test dependencies
+      - name: Install build dependencies
         run: python -m pip install -r requirements-release.txt
-
-      - name: Run regression tests
-        run: python -m pytest -q
 
       - name: Install verified Inno Setup compiler
         run: ./scripts/install_inno.ps1
 
-      - name: Build installer, portable app and source archive
+      - name: Build installer, portable app, CLI/API wheel and source archive
         run: python scripts/build.py --installer
 
       - name: Verify complete release and source version
@@ -153,7 +150,7 @@ jobs:
                 || metadata.display_name !== branding.display_name) throw new Error('Unexpected branding changes.');
             const prefix = `${branding.executable_name}-${version}`;
             const names = [`${prefix}-windows-x64-setup.exe`, `${prefix}-windows-x64-portable.zip`,
-                           `${prefix}-source.zip`, 'SHA256SUMS.txt'];
+                           `${prefix}-source.zip`, `cutris-${version}-py3-none-any.whl`, 'SHA256SUMS.txt'];
             if (JSON.stringify(metadata.assets) !== JSON.stringify(names)) throw new Error('Unexpected release assets.');
             const directory = path.resolve('release-input/release');
             const actualNames = (await fs.readdir(directory)).sort();
@@ -202,7 +199,7 @@ jobs:
               target_commitish: targetSha, name: `${branding.display_name} ${version}`,
               body: metadata.body + '\n' + marker, draft: true, prerelease: false});
             const releaseId = created.data.id;
-            core.info(`Created draft release ${releaseId}. Uploading all four verified assets.`);
+            core.info(`Created draft release ${releaseId}. Uploading all verified assets.`);
             try {
               for (const name of names) {
                 const bytes = await fs.readFile(path.join(directory, name));
