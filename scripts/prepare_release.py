@@ -6,6 +6,7 @@ The GitHub workflow publishes only after the Windows build and all checks pass.
 from __future__ import annotations
 
 import argparse
+from email.parser import BytesParser
 import hashlib
 import html
 import json
@@ -124,8 +125,9 @@ def verify_artifacts(root: Path, metadata: dict) -> dict[str, str]:
     with zipfile.ZipFile(directory / names[3]) as archive:
         if archive.read('cutris/resources/branding.json').decode('utf-8') != metadata['branding_text']:
             raise ValueError('Wheel version metadata does not match the build.')
-        package_metadata = archive.read(f'cutris-{metadata["version"]}.dist-info/METADATA').decode('utf-8')
-        if f'\nVersion: {metadata["version"]}\n' not in package_metadata:
+        package_metadata = BytesParser().parsebytes(
+            archive.read(f'cutris-{metadata["version"]}.dist-info/METADATA'), headersonly=True)
+        if package_metadata.get_all('Version') != [metadata['version']]:
             raise ValueError('Wheel package version does not match the build.')
         if any(name.lower().endswith('.onnx') for name in archive.namelist()):
             raise ValueError('AI model weights must not be included in wheels.')
