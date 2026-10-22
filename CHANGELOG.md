@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Open export and saved-work folders through the Windows shell, with visible errors and a native folder picker.
 - Stop remaining queue items without losing finished cutouts; clear the current queue while keeping saved files and batch history.
 - Show installed AI models immediately, with separate download and repair actions.
 - Simplify the app header and refresh workspace, settings, and batch tools screenshots.
